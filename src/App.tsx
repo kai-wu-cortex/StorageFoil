@@ -13,6 +13,7 @@ import TimeScaleView from './components/TimeScaleView';
 import WpsSettingsModal from './components/WpsSettingsModal';
 import { loadWpsConfig } from './components/wpsConfig';
 import { useWpsInventorySync } from './hooks/useWpsInventorySync';
+import { useLocalStorageState } from './hooks/useLocalStorageState';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Database,
@@ -118,20 +119,49 @@ export default function App() {
   const [isCreateMonthOpen, setIsCreateMonthOpen] = useState(false);
 
   // Create month form states
-  const [newMonthYear, setNewMonthYear] = useState('2026');
-  const [newMonthVal, setNewMonthVal] = useState('08');
-  const [newMonthMode, setNewMonthMode] = useState<'rollover' | 'empty'>('rollover');
+  const [newMonthYear, setNewMonthYear] = useLocalStorageState(
+    'storage_foil_pref_v1_new_month_year',
+    '2026',
+  );
+  const [newMonthVal, setNewMonthVal] = useLocalStorageState(
+    'storage_foil_pref_v1_new_month_value',
+    '08',
+  );
+  const [newMonthMode, setNewMonthMode] = useLocalStorageState<'rollover' | 'empty'>(
+    'storage_foil_pref_v1_new_month_mode',
+    'rollover',
+  );
 
   // Layout Tab selection
-  const [activeTab, setActiveTab] = useState<'query' | 'table' | 'visual' | 'previous_month' | 'timeline' | 'logs' | 'management'>('query');
+  const [activeTab, setActiveTab] = useLocalStorageState<
+    'query' | 'table' | 'visual' | 'previous_month' | 'timeline' | 'logs' | 'management'
+  >('storage_foil_pref_v1_active_tab', 'query');
 
   // Search & Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
-  const [selectedWarningFilter, setSelectedWarningFilter] = useState<string | null>(null);
-  const [selectedStockLevelFilter, setSelectedStockLevelFilter] = useState<'low' | 'high' | 'in_stock' | null>(null);
-  const [sortBy, setSortBy] = useState<'inflow' | 'outflow' | null>(null);
-  const [selectedSourceId, setSelectedSourceId] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useLocalStorageState(
+    'storage_foil_pref_v1_search_query',
+    '',
+  );
+  const [selectedShelf, setSelectedShelf] = useLocalStorageState<string | null>(
+    'storage_foil_pref_v1_selected_shelf',
+    null,
+  );
+  const [selectedWarningFilter, setSelectedWarningFilter] = useLocalStorageState<
+    string | null
+  >('storage_foil_pref_v1_warning_filter', null);
+  const [selectedStockLevelFilter, setSelectedStockLevelFilter] =
+    useLocalStorageState<'low' | 'high' | 'in_stock' | null>(
+      'storage_foil_pref_v1_stock_level_filter',
+      null,
+    );
+  const [sortBy, setSortBy] = useLocalStorageState<'inflow' | 'outflow' | null>(
+    'storage_foil_pref_v1_sort_by',
+    null,
+  );
+  const [selectedSourceId, setSelectedSourceId] = useLocalStorageState(
+    'storage_foil_pref_v1_selected_source',
+    'all',
+  );
   const [dataSources, setDataSources] = useState(
     () => loadWpsConfig().sources,
   );

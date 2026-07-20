@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { InventoryBatch } from '../types';
+import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import {
   Layers,
   Search,
@@ -21,7 +22,10 @@ export default function PreviousMonthBalanceView({
   currentBatches,
 }: PreviousMonthBalanceViewProps) {
   // 1. Determine comparison month
-  const [comparisonMonth, setComparisonMonth] = useState<string>('');
+  const [comparisonMonth, setComparisonMonth] = useLocalStorageState(
+    'storage_foil_pref_v1_comparison_month',
+    '',
+  );
 
   // Find chronological default previous month (e.g. 2026-07 -> 2026-06)
   const getPrevMonthDefault = (monthStr: string) => {
@@ -40,15 +44,12 @@ export default function PreviousMonthBalanceView({
   useEffect(() => {
     const calculatedDefault = getPrevMonthDefault(currentMonth);
     const otherMonths = monthsList.filter(m => m !== currentMonth);
-    
-    if (otherMonths.includes(calculatedDefault)) {
-      setComparisonMonth(calculatedDefault);
-    } else if (otherMonths.length > 0) {
-      // fallback to the first available other month
-      setComparisonMonth(otherMonths[0]);
-    } else {
-      setComparisonMonth('');
-    }
+
+    setComparisonMonth(savedMonth => {
+      if (otherMonths.includes(savedMonth)) return savedMonth;
+      if (otherMonths.includes(calculatedDefault)) return calculatedDefault;
+      return otherMonths[0] || '';
+    });
   }, [currentMonth, monthsList]);
 
   // 2. Load comparison month data from localStorage
@@ -77,8 +78,13 @@ export default function PreviousMonthBalanceView({
   }, [comparisonMonth]);
 
   // 3. Search and filtering states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'carried' | 'discrepancy' | 'uncarried' | 'has_balance'>('all');
+  const [searchQuery, setSearchQuery] = useLocalStorageState(
+    'storage_foil_pref_v1_previous_month_search',
+    '',
+  );
+  const [statusFilter, setStatusFilter] = useLocalStorageState<
+    'all' | 'carried' | 'discrepancy' | 'uncarried' | 'has_balance'
+  >('storage_foil_pref_v1_previous_month_status', 'all');
 
   // Helper to check carryover status and current batch
   const getCarryoverStatus = (prevBatch: InventoryBatch) => {

@@ -47,3 +47,12 @@ The parser matches the source workbook layout:
 
 Merged product-model groups are inherited by their following batch rows. A
 meaningful row without a batch number is preserved as `未标批次-<source row>`.
+
+## Browser-local persistence
+
+Inventory data, month sheets, rack layouts, WPS source configuration, field
+mapping, view selection, filters, sorting, card layout, table page size,
+comparison settings, timeline controls, and common form defaults are saved in
+the current browser's local storage. WPS settings save automatically while they
+are edited. Temporary UI state such as open dialogs, validation errors, expanded
+cards, and timeline playback is intentionally not persisted.

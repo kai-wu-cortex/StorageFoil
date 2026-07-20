@@ -21,6 +21,7 @@ import {
 } from '../services/wps';
 import type { InventoryWorksheet } from '../services/wps';
 import type { WpsSyncConfig } from '../types';
+import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import {
   createWpsDataSource,
   loadWpsConfig,
@@ -61,9 +62,15 @@ export default function WpsSettingsModal({
   onDiscover,
   onSync,
 }: WpsSettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'connection' | 'mapping'>('connection');
+  const [activeTab, setActiveTab] = useLocalStorageState<'connection' | 'mapping'>(
+    'storage_foil_pref_v1_wps_settings_tab',
+    'connection',
+  );
   const [config, setConfig] = useState<WpsSyncConfig>(() => loadWpsConfig());
-  const [selectedSourceId, setSelectedSourceId] = useState('pl');
+  const [selectedSourceId, setSelectedSourceId] = useLocalStorageState(
+    'storage_foil_pref_v1_wps_selected_source',
+    'pl',
+  );
   const [newSourceName, setNewSourceName] = useState('');
   const [headers, setHeaders] = useState<string[]>([]);
   const [discoveredWorksheets, setDiscoveredWorksheets] = useState<
@@ -78,6 +85,19 @@ export default function WpsSettingsModal({
       setConfig(current => ({ ...current, code: initialCode }));
     }
   }, [initialCode]);
+
+  useEffect(() => {
+    saveWpsConfig(config);
+  }, [config]);
+
+  useEffect(() => {
+    if (
+      config.sources.length > 0 &&
+      !config.sources.some(source => source.id === selectedSourceId)
+    ) {
+      setSelectedSourceId(config.sources[0].id);
+    }
+  }, [config.sources, selectedSourceId, setSelectedSourceId]);
 
   useEffect(() => {
     if (!syncResponse) return;
