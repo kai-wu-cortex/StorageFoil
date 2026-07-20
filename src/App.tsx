@@ -10,6 +10,9 @@ import AddBatchModal from './components/AddBatchModal';
 import PreviousMonthBalanceView from './components/PreviousMonthBalanceView';
 import InventoryCards from './components/InventoryCards';
 import TimeScaleView from './components/TimeScaleView';
+import WpsSettingsModal from './components/WpsSettingsModal';
+import { loadWpsConfig } from './components/wpsConfig';
+import { useWpsInventorySync } from './hooks/useWpsInventorySync';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Database,
@@ -27,7 +30,11 @@ import {
   Plus,
   X,
   Search,
-  Clock
+  Clock,
+  Settings,
+  Loader2,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 
 const getPreseededDataForMonth = (month: string) => {
@@ -124,6 +131,10 @@ export default function App() {
   const [selectedWarningFilter, setSelectedWarningFilter] = useState<string | null>(null);
   const [selectedStockLevelFilter, setSelectedStockLevelFilter] = useState<'low' | 'high' | 'in_stock' | null>(null);
   const [sortBy, setSortBy] = useState<'inflow' | 'outflow' | null>(null);
+  const [selectedSourceId, setSelectedSourceId] = useState<string>('all');
+  const [dataSources, setDataSources] = useState(
+    () => loadWpsConfig().sources,
+  );
 
   // Modals controller
   const [isAddBatchOpen, setIsAddBatchOpen] = useState(false);
@@ -137,7 +148,12 @@ export default function App() {
     // One-time reset to force seed new rich random activities
     const seedMarker = localStorage.getItem('pl_inventory_seeded_v1_3');
     if (!seedMarker) {
-      localStorage.clear();
+      const inventoryKeys: string[] = [];
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (key?.startsWith('pl_inventory_')) inventoryKeys.push(key);
+      }
+      inventoryKeys.forEach(key => localStorage.removeItem(key));
       localStorage.setItem('pl_inventory_seeded_v1_3', 'true');
     }
 
@@ -733,9 +749,33 @@ export default function App() {
     }
   };
 
+  const sourceFilteredBatches = useMemo(() => {
+    if (selectedSourceId === 'all') return batches;
+    return batches.filter(batch =>
+      selectedSourceId === 'pl'
+        ? !batch.sourceId || batch.sourceId === 'pl'
+        : batch.sourceId === selectedSourceId,
+    );
+  }, [batches, selectedSourceId]);
+
+  const sourceFilters = useMemo(() => {
+    const sources = new Map(
+      dataSources.map(source => [source.id, { id: source.id, name: source.name }]),
+    );
+    batches.forEach(batch => {
+      if (batch.sourceId && !sources.has(batch.sourceId)) {
+        sources.set(batch.sourceId, {
+          id: batch.sourceId,
+          name: batch.sourceName || '已移除来源',
+        });
+      }
+    });
+    return [...sources.values()];
+  }, [batches, dataSources]);
+
   // Filter batches for the dedicated Inventory Query Cards view
   const filteredQueryBatches = useMemo(() => {
-    return batches.filter((b) => {
+    return sourceFilteredBatches.filter((b) => {
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch =
         !searchQuery ||
@@ -765,7 +805,41 @@ export default function App() {
 
       return matchesSearch && matchesWarning && matchesStockLevel;
     });
-  }, [batches, searchQuery, selectedWarningFilter, selectedStockLevelFilter]);
+  }, [sourceFilteredBatches, searchQuery, selectedWarningFilter, selectedStockLevelFilter]);
+
+  const wps = useWpsInventorySync({
+    batches,
+    currentMonth,
+    isDataLoaded,
+    getBatchesForMonth: targetMonth => {
+      if (targetMonth === currentMonth) return batches;
+      try {
+        const saved = localStorage.getItem(`pl_inventory_batches_${targetMonth}`);
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
+    },
+    onSynced: (syncedBatches, targetMonth) => {
+      localStorage.setItem(
+        `pl_inventory_batches_${targetMonth}`,
+        JSON.stringify(syncedBatches),
+      );
+      localStorage.setItem(
+        `pl_inventory_transactions_${targetMonth}`,
+        localStorage.getItem(`pl_inventory_transactions_${targetMonth}`) || '[]',
+      );
+      setMonthsList(current => {
+        if (current.includes(targetMonth)) return current;
+        const updated = [...current, targetMonth].sort((a, b) => b.localeCompare(a));
+        localStorage.setItem('pl_inventory_months', JSON.stringify(updated));
+        return updated;
+      });
+      if (targetMonth === currentMonth) {
+        setBatches(syncedBatches);
+      }
+    },
+  });
 
   if (!isDataLoaded) {
     return (
@@ -800,6 +874,20 @@ export default function App() {
 
             {/* Global Quick Action (Hidden on mobile to save precious visual space) */}
             <div className="flex items-center gap-3 flex-shrink-0">
+              {wps.isSyncing && (
+                <span className="hidden items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[10px] font-semibold text-emerald-700 sm:flex">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  WPS 同步中
+                </span>
+              )}
+              <button
+                onClick={() => wps.setIsSettingsOpen(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                title="配置 WPS 在线表格数据源"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">WPS 数据源</span>
+              </button>
               <span className="text-xs text-slate-400 font-medium hidden sm:inline">数据呈现模式</span>
             </div>
           </div>
@@ -836,6 +924,50 @@ export default function App() {
               })}
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="border-b border-slate-200/70 bg-[#F8F9FB]">
+        <div className="flex w-full items-center gap-2 overflow-x-auto px-4 py-2 sm:px-6 md:px-8">
+          <span className="mr-1 flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <Layers className="h-3.5 w-3.5" />
+            数据来源
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedSourceId('all')}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-bold transition ${
+              selectedSourceId === 'all'
+                ? 'border-slate-800 bg-slate-800 text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            全部 · {batches.length}
+          </button>
+          {sourceFilters.map(source => {
+            const count = batches.filter(batch =>
+              source.id === 'pl'
+                ? !batch.sourceId || batch.sourceId === 'pl'
+                : batch.sourceId === source.id,
+            ).length;
+            return (
+              <button
+                key={source.id}
+                type="button"
+                onClick={() => setSelectedSourceId(source.id)}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-bold transition ${
+                  selectedSourceId === source.id
+                    ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:text-emerald-700'
+                }`}
+              >
+                {source.name} · {count}
+              </button>
+            );
+          })}
+          <span className="ml-auto hidden shrink-0 text-[10px] text-slate-400 sm:block">
+            当前显示 {sourceFilteredBatches.length} 条
+          </span>
         </div>
       </div>
 
@@ -960,7 +1092,7 @@ export default function App() {
           {activeTab === 'query' && (
             <div className="space-y-4 animate-fade-in">
               <InventoryQueryConsole
-                batches={batches}
+                batches={sourceFilteredBatches}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
                 selectedWarningFilter={selectedWarningFilter}
@@ -979,7 +1111,7 @@ export default function App() {
             <div className="space-y-4 animate-fade-in">
               {/* Stats overview */}
               <StatsDashboard
-                batches={batches}
+                batches={sourceFilteredBatches}
                 selectedWarningFilter={selectedWarningFilter}
                 onSelectWarningFilter={setSelectedWarningFilter}
                 selectedStockLevelFilter={selectedStockLevelFilter}
@@ -994,7 +1126,7 @@ export default function App() {
 
               {/* Main table */}
               <InventoryTable
-                batches={batches}
+                batches={sourceFilteredBatches}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
                 selectedShelf={selectedShelf}
@@ -1009,7 +1141,7 @@ export default function App() {
           {activeTab === 'visual' && (
             <div className="space-y-4 animate-fade-in">
               <ShelfVisualizer
-                batches={batches}
+                batches={sourceFilteredBatches}
                 selectedShelf={selectedShelf}
                 onSelectShelf={setSelectedShelf}
                 onQuickTransaction={(batch, type) => setTransactionTarget({ batch, type })}
@@ -1020,7 +1152,7 @@ export default function App() {
 
               {/* Synchronized Inventory table below map visualizer */}
               <InventoryTable
-                batches={batches}
+                batches={sourceFilteredBatches}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
                 selectedShelf={selectedShelf}
@@ -1045,7 +1177,7 @@ export default function App() {
           {activeTab === 'timeline' && (
             <div className="animate-fade-in">
               <TimeScaleView
-                batches={batches}
+                batches={sourceFilteredBatches}
                 transactions={transactions}
                 currentMonth={currentMonth}
               />
@@ -1354,6 +1486,55 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {wps.toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            className={`fixed bottom-5 right-5 z-[120] flex max-w-sm items-start gap-2 rounded-2xl border px-4 py-3 text-xs font-semibold shadow-xl ${
+              wps.toast.type === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-rose-200 bg-rose-50 text-rose-700'
+            }`}
+          >
+            {wps.toast.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+            ) : (
+              <XCircle className="h-4 w-4 shrink-0" />
+            )}
+            {wps.toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <WpsSettingsModal
+        open={wps.isSettingsOpen}
+        onClose={() => {
+          const sources = loadWpsConfig().sources;
+          setDataSources(sources);
+          if (
+            selectedSourceId !== 'all' &&
+            !sources.some(source => source.id === selectedSourceId) &&
+            !batches.some(batch => batch.sourceId === selectedSourceId)
+          ) {
+            setSelectedSourceId('all');
+          }
+          wps.setIsSettingsOpen(false);
+        }}
+        currentMonth={currentMonth}
+        initialCode={wps.oauthCode}
+        isSyncing={wps.isSyncing}
+        isGettingToken={wps.isGettingToken}
+        isDiscovering={wps.isDiscovering}
+        tokenStatus={wps.tokenStatus}
+        tokenResponse={wps.tokenResponse}
+        syncResponse={wps.syncResponse}
+        onGetToken={wps.exchangeToken}
+        onDiscover={wps.discoverWorksheets}
+        onSync={wps.sync}
+      />
     </div>
   );
 }
