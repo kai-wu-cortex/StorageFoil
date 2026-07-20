@@ -1,0 +1,6 @@
+{
+  "name": "品特烫金膜出入库管理与库存查询",
+  "description": "一款专为品特烫金膜设计的出入库管理与排位可视化库存查询系统，提供高效、直观的在库统计与看板。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
