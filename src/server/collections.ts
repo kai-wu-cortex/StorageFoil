@@ -1,6 +1,6 @@
 import type { Collection, Document } from 'mongodb';
 import type { StorageFoilRole } from '../shared/authTypes.ts';
-import type { EncryptedSecret, SyncRunStatus, SyncRunTrigger, WpsSyncSourceConfig } from '../shared/syncTypes.ts';
+import type { EncryptedSecret, OperationLogLevel, OperationLogType, SyncRunStatus, SyncRunTrigger, WpsSyncSourceConfig } from '../shared/syncTypes.ts';
 import type { InventoryBatch } from '../types.ts';
 
 export const STORAGE_FOIL_COLLECTION_PREFIX = 'storage_foil_';
@@ -13,6 +13,7 @@ export const COLLECTION_NAMES = {
   inventoryBatches: 'storage_foil_inventory_batches',
   inventoryPublications: 'storage_foil_inventory_publications',
   syncLocks: 'storage_foil_sync_locks',
+  operationLogs: 'storage_foil_operation_logs',
 } as const;
 
 export interface StorageFoilUserDocument extends Document {
@@ -112,6 +113,30 @@ export interface StorageFoilSyncLockDocument extends Document {
   acquiredAt: Date;
 }
 
+export interface StorageFoilOperationLogDocument extends Document {
+  _id: string;
+  type: OperationLogType;
+  level: OperationLogLevel;
+  syncRunId?: string;
+  sourceId?: string;
+  sourceName?: string;
+  fileId?: string;
+  worksheetId?: number;
+  worksheetName?: string;
+  month?: string;
+  batchCode?: string;
+  productModel?: string;
+  specification?: string;
+  shelf?: string;
+  inQty?: number;
+  outQty?: number;
+  stock?: number;
+  sourceRow?: number;
+  message: string;
+  triggeredBy: string;
+  createdAt: Date;
+}
+
 export interface StorageFoilCollections {
   users: Collection<StorageFoilUserDocument>;
   wpsCredentials: Collection<StorageFoilWpsCredentialsDocument>;
@@ -120,6 +145,7 @@ export interface StorageFoilCollections {
   inventoryBatches: Collection<StorageFoilInventoryBatchDocument>;
   inventoryPublications: Collection<StorageFoilInventoryPublicationDocument>;
   syncLocks: Collection<StorageFoilSyncLockDocument>;
+  operationLogs: Collection<StorageFoilOperationLogDocument>;
 }
 
 interface CollectionResolver {
@@ -147,5 +173,8 @@ export function getStorageFoilCollections(db: CollectionResolver): StorageFoilCo
     syncLocks: db.collection<StorageFoilSyncLockDocument>(
       COLLECTION_NAMES.syncLocks,
     ) as Collection<StorageFoilSyncLockDocument>,
+    operationLogs: db.collection<StorageFoilOperationLogDocument>(
+      COLLECTION_NAMES.operationLogs,
+    ) as Collection<StorageFoilOperationLogDocument>,
   };
 }

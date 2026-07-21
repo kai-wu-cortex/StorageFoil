@@ -14,6 +14,7 @@ import {
 } from './syncRunRepository.ts';
 import { publicSyncErrorMessage } from './adminSyncApi.ts';
 import { sendJson } from './sessionAuth.ts';
+import { writeOperationLog } from './operationLogRepository.ts';
 
 interface HttpSyncService {
   createRun(input: { idempotencyKey: string; fileId: string }): Promise<PublicSyncRun | Pick<PublicSyncRun, 'id' | 'status'>>;
@@ -63,6 +64,14 @@ function service(): HttpSyncService {
         idempotencyKey: input.idempotencyKey,
         configRevision: config.revision,
       });
+      await writeOperationLog({
+        type: 'sync_received',
+        level: 'info',
+        syncRunId: run.id,
+        fileId: input.fileId,
+        message: `收到 WPS HTTP 同步请求：fileId=${input.fileId}`,
+        triggeredBy: `http:${input.fileId}`,
+      });
       if (run.status !== 'published' && run.status !== 'failed') {
         await executeHttpRun(run.id, config.revision, input.fileId);
       }
@@ -75,6 +84,14 @@ async function executeHttpRun(runId: string, configRevision: string, fileId: str
   const runCollection = (await getMongoCollection(COLLECTION_NAMES.syncRuns)) as unknown as SyncRunCollection;
   const lockCollection = (await getMongoCollection(COLLECTION_NAMES.syncLocks)) as unknown as SyncLockCollection;
   if (!(await acquireSyncLock(lockCollection, runId))) {
+    await writeOperationLog({
+      type: 'sync_failed',
+      level: 'warning',
+      syncRunId: runId,
+      fileId,
+      message: '同步失败：已有另一个同步任务正在运行。',
+      triggeredBy: `http:${fileId}`,
+    });
     await finalizeSyncRun(runCollection, runId, {
       status: 'failed',
       sourceResults: [],
@@ -91,6 +108,14 @@ async function executeHttpRun(runId: string, configRevision: string, fileId: str
     });
     await finalizeSyncRun(runCollection, runId, result);
   } catch (error) {
+    await writeOperationLog({
+      type: 'sync_failed',
+      level: 'error',
+      syncRunId: runId,
+      fileId,
+      message: `同步失败：${publicSyncErrorMessage(error)}`,
+      triggeredBy: `http:${fileId}`,
+    });
     await finalizeSyncRun(runCollection, runId, {
       status: 'failed',
       sourceResults: [],

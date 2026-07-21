@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_WPS_FIELD_CONFIG } from '../data/wpsFieldConfig';
 import { adminSyncApi } from '../lib/adminSyncApi';
-import type { PublicWpsCredentials, WpsSyncSourceConfig } from '../shared/syncTypes';
+import type { OperationLogEntry, OperationLogType, PublicWpsCredentials, WpsSyncSourceConfig } from '../shared/syncTypes';
 
 export interface AdminSyncConfig {
   credentials: PublicWpsCredentials;
@@ -27,6 +27,7 @@ export interface AdminSyncClient {
   getAuthorizationUrl(): Promise<{ url: string }>;
   triggerSync(body: { idempotencyKey: string }): Promise<AdminSyncRunState>;
   getRun(runId: string): Promise<AdminSyncRunState>;
+  getOperationLogs(options?: { limit?: number; type?: OperationLogType; sourceId?: string; month?: string; syncRunId?: string }): Promise<{ logs: OperationLogEntry[] }>;
 }
 
 export interface NewSyncSourceDraft {
@@ -43,6 +44,9 @@ export interface AdminSyncState {
   isSaving: boolean;
   isTriggering: boolean;
   isPolling: boolean;
+  isLoadingLogs: boolean;
+  logs: OperationLogEntry[];
+  logTypeFilter: OperationLogType | 'all';
   error: string | null;
   message: string | null;
 }
@@ -69,6 +73,9 @@ export function getInitialAdminSyncState(): AdminSyncState {
     isSaving: false,
     isTriggering: false,
     isPolling: false,
+    isLoadingLogs: false,
+    logs: [],
+    logTypeFilter: 'all',
     error: null,
     message: null,
   };
@@ -125,6 +132,7 @@ export function createAdminSyncController(options: {
       try {
         const config = await options.api.getSyncConfig();
         setState({ ...state, status: 'ready', config, error: null });
+        void this.loadOperationLogs();
       } catch (error) {
         setState({ ...state, status: 'error', error: error instanceof Error ? error.message : '同步配置读取失败。' });
       }
@@ -231,6 +239,7 @@ export function createAdminSyncController(options: {
           const run = await options.api.triggerSync({ idempotencyKey: `admin-${Date.now()}` });
           setState({ ...state, run, isTriggering: false, message: '同步任务已提交，正在读取运行结果。' });
           await this.pollRunUntilTerminal(run.id);
+          await this.loadOperationLogs();
         } catch (error) {
           setState({ ...state, isTriggering: false, error: error instanceof Error ? error.message : '同步触发失败。' });
         } finally {
@@ -245,6 +254,7 @@ export function createAdminSyncController(options: {
       try {
         const run = await options.api.getRun(runId);
         setState({ ...state, run, isPolling: false });
+        void this.loadOperationLogs();
         if (run.status === 'published' && !refreshedRuns.has(run.id)) {
           refreshedRuns.add(run.id);
           await options.onRefreshCurrentMonth?.();
@@ -266,6 +276,24 @@ export function createAdminSyncController(options: {
         isPolling: false,
         error: '同步任务仍在运行，请稍后刷新运行状态。',
       });
+    },
+
+    setLogTypeFilter(type: OperationLogType | 'all') {
+      setState({ ...state, logTypeFilter: type });
+      void this.loadOperationLogs(type);
+    },
+
+    async loadOperationLogs(type = state.logTypeFilter) {
+      setState({ ...state, isLoadingLogs: true, error: null });
+      try {
+        const result = await options.api.getOperationLogs({
+          limit: 120,
+          type: type === 'all' ? undefined : type,
+        });
+        setState({ ...state, logs: result.logs, logTypeFilter: type, isLoadingLogs: false });
+      } catch (error) {
+        setState({ ...state, isLoadingLogs: false, error: error instanceof Error ? error.message : '操作日志读取失败。' });
+      }
     },
   };
 }
@@ -303,5 +331,7 @@ export function useAdminSync(options: {
     authorizeWps: useCallback(() => controllerRef.current?.authorizeWps(), []),
     triggerSync: useCallback(() => controllerRef.current?.triggerSync(), []),
     pollRunStatus: useCallback((runId: string) => controllerRef.current?.pollRunStatus(runId), []),
+    setLogTypeFilter: useCallback((type: OperationLogType | 'all') => controllerRef.current?.setLogTypeFilter(type), []),
+    loadOperationLogs: useCallback(() => controllerRef.current?.loadOperationLogs(), []),
   };
 }

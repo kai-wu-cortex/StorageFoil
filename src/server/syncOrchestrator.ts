@@ -11,6 +11,7 @@ import { COLLECTION_NAMES } from './collections.ts';
 import { getMongoCollection } from './mongodb.ts';
 import type { InventoryBatch } from '../types.ts';
 import { logSyncEvent, type LoggerLike } from './observability.ts';
+import { writeOperationLog, writeOperationLogs } from './operationLogRepository.ts';
 
 export interface SyncOrchestratorDependencies {
   runId: string;
@@ -51,10 +52,24 @@ async function defaultPublisherCollections(): Promise<InventoryPublisherCollecti
 export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promise<SyncOrchestratorResult> {
   const runStartedAt = Date.now();
   const config = await (deps.getConfig || getPublicSyncConfig)();
+  await writeOperationLog({
+    type: 'sync_started',
+    level: 'info',
+    syncRunId: deps.runId,
+    message: `同步开始：启用来源 ${config.sources.filter(source => source.enabled).length} 个。`,
+    triggeredBy: deps.triggeredBy,
+  });
   let token: { accessToken: string; apiBase: string };
   try {
     token = await (deps.getAccessToken || getValidWpsAccessToken)();
   } catch (error) {
+    await writeOperationLog({
+      type: 'sync_failed',
+      level: 'error',
+      syncRunId: deps.runId,
+      message: `WPS Token 获取失败：${shortErrorMessage(error)}`,
+      triggeredBy: deps.triggeredBy,
+    });
     return {
       status: 'failed',
       sourceResults: [],
@@ -83,6 +98,16 @@ export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promis
     } catch (error) {
       const errorMessage = shortErrorMessage(error);
       failedMonths.add('*');
+      await writeOperationLog({
+        type: 'source_synced',
+        level: 'error',
+        syncRunId: deps.runId,
+        sourceId: source.id,
+        sourceName: source.alias || source.name,
+        fileId: source.fileId,
+        message: `${source.alias || source.name} 工作表列表读取失败：${errorMessage}`,
+        triggeredBy: deps.triggeredBy,
+      });
       results.push({ sourceId: source.id, worksheetId: 0, month: '', status: 'failed', recordCount: 0, errorCode: `WORKSHEETS_FAILED: ${errorMessage}` });
       continue;
     }
@@ -111,6 +136,42 @@ export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promis
           worksheetName: worksheet.name,
           batches: parsed.batches,
         });
+        await writeOperationLogs(parsed.batches
+          .filter(batch => batch.inflowQty || batch.outflowQty || batch.totalStock)
+          .map((batch, index) => ({
+            type: 'inventory_activity' as const,
+            level: 'info' as const,
+            syncRunId: deps.runId,
+            sourceId: source.id,
+            sourceName: source.alias || source.name,
+            fileId: source.fileId,
+            worksheetId: worksheet.worksheetId,
+            worksheetName: worksheet.name,
+            month: worksheet.month,
+            batchCode: batch.batchCode,
+            productModel: batch.productModel || source.alias || source.name,
+            specification: batch.specification,
+            shelf: batch.shelf,
+            inQty: batch.inflowQty,
+            outQty: batch.outflowQty,
+            stock: batch.totalStock,
+            sourceRow: index + 1,
+            message: `${source.alias || source.name} ${worksheet.month} ${batch.productModel || source.alias || source.name} / ${batch.batchCode}：入库 ${batch.inflowQty}，出库 ${batch.outflowQty}，库存 ${batch.totalStock}`,
+            triggeredBy: deps.triggeredBy,
+          })));
+        await writeOperationLog({
+          type: 'source_synced',
+          level: 'success',
+          syncRunId: deps.runId,
+          sourceId: source.id,
+          sourceName: source.alias || source.name,
+          fileId: source.fileId,
+          worksheetId: worksheet.worksheetId,
+          worksheetName: worksheet.name,
+          month: worksheet.month,
+          message: `${source.alias || source.name} ${worksheet.month} 工作表同步完成：${count} 条记录。`,
+          triggeredBy: deps.triggeredBy,
+        });
         logSyncEvent(deps.logger, {
           syncRunId: deps.runId,
           sourceId: source.id,
@@ -126,6 +187,19 @@ export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promis
         successfulMonths.set(worksheet.month, set);
       } catch (error) {
         const errorMessage = shortErrorMessage(error);
+        await writeOperationLog({
+          type: 'source_synced',
+          level: 'error',
+          syncRunId: deps.runId,
+          sourceId: source.id,
+          sourceName: source.alias || source.name,
+          fileId: source.fileId,
+          worksheetId: worksheet.worksheetId,
+          worksheetName: worksheet.name,
+          month: worksheet.month,
+          message: `${source.alias || source.name} ${worksheet.month} 工作表同步失败：${errorMessage}`,
+          triggeredBy: deps.triggeredBy,
+        });
         logSyncEvent(deps.logger, {
           syncRunId: deps.runId,
           sourceId: source.id,
@@ -147,6 +221,15 @@ export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promis
     }
   }
   const hasFailure = results.some(result => result.status === 'failed');
+  await writeOperationLog({
+    type: hasFailure ? 'sync_failed' : 'sync_published',
+    level: hasFailure ? 'error' : 'success',
+    syncRunId: deps.runId,
+    message: hasFailure
+      ? `同步失败：${results.filter(result => result.status === 'failed').length} 个工作表失败。`
+      : `同步发布完成：${new Set(results.map(result => result.sourceId)).size} 个来源，${results.length} 个工作表，${results.reduce((sum, result) => sum + result.recordCount, 0)} 条记录。`,
+    triggeredBy: deps.triggeredBy,
+  });
   logSyncEvent(deps.logger, {
     syncRunId: deps.runId,
     status: hasFailure ? 'failed' : 'published',

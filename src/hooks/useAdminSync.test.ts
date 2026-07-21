@@ -38,6 +38,8 @@ const config = {
   ],
 };
 
+const getOperationLogs: AdminSyncClient['getOperationLogs'] = async () => ({ logs: [] });
+
 test('admin sync controller loads config edits arbitrary sources and handles save conflicts', async () => {
   const states: ReturnType<typeof getInitialAdminSyncState>[] = [];
   const api: AdminSyncClient = {
@@ -52,6 +54,7 @@ test('admin sync controller loads config edits arbitrary sources and handles sav
     getAuthorizationUrl: async () => ({ url: 'https://openapi.wps.cn/oauth2/auth' }),
     triggerSync: async () => ({ id: 'run-1', status: 'queued' }),
     getRun: async () => ({ id: 'run-1', status: 'published' }),
+    getOperationLogs,
   };
   const controller = createAdminSyncController({
     api,
@@ -84,6 +87,7 @@ test('admin sync controller saves sources without sending App ID or App Key', as
     getAuthorizationUrl: async () => ({ url: 'https://openapi.wps.cn/oauth2/auth' }),
     triggerSync: async () => ({ id: 'run-1', status: 'queued' }),
     getRun: async () => ({ id: 'run-1', status: 'published' }),
+    getOperationLogs,
   };
   const controller = createAdminSyncController({ api });
 
@@ -103,6 +107,7 @@ test('admin sync controller deletes sources from the saved source list', async (
     getAuthorizationUrl: async () => ({ url: 'https://openapi.wps.cn/oauth2/auth' }),
     triggerSync: async () => ({ id: 'run-1', status: 'queued' }),
     getRun: async () => ({ id: 'run-1', status: 'published' }),
+    getOperationLogs,
   };
   const controller = createAdminSyncController({ api });
 
@@ -132,6 +137,7 @@ test('admin sync controller authorizes triggers once polls and refreshes only af
         totals: { sources: 1, worksheets: 1, records: 2, failures: 0 },
       };
     },
+    getOperationLogs,
   };
   const controller = createAdminSyncController({
     api,

@@ -53,6 +53,21 @@ export function createAdminSyncApi(fetcher: FetchLike = fetch) {
           credentials: 'include',
         }),
       ),
+    getOperationLogs: async (options: { limit?: number; type?: string; sourceId?: string; month?: string; syncRunId?: string } = {}) => {
+      const params = new URLSearchParams();
+      if (options.limit) params.set('limit', String(options.limit));
+      if (options.type) params.set('type', options.type);
+      if (options.sourceId) params.set('sourceId', options.sourceId);
+      if (options.month) params.set('month', options.month);
+      if (options.syncRunId) params.set('syncRunId', options.syncRunId);
+      const query = params.toString();
+      return parseAdminSyncResponse(
+        await awaitFetch(fetcher, `/api/admin/operation-logs${query ? `?${query}` : ''}`, {
+          method: 'GET',
+          credentials: 'include',
+        }),
+      );
+    },
   };
 }
 

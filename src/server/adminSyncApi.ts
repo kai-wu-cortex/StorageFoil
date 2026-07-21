@@ -8,6 +8,7 @@ import { acquireSyncLock, releaseSyncLock, type SyncLockCollection } from './syn
 import { runWpsFullSync } from './syncOrchestrator.ts';
 import { finalizeSyncRun } from './syncRunRepository.ts';
 import { getSessionSecret, requireRole, requireSameOrigin, sendJson } from './sessionAuth.ts';
+import { writeOperationLog } from './operationLogRepository.ts';
 
 interface AdminSyncService {
   createRun(input: { idempotencyKey: string; triggeredBy: string }): Promise<Pick<PublicSyncRun, 'id' | 'status'>>;
@@ -36,6 +37,13 @@ function service(): AdminSyncService {
         idempotencyKey: input.idempotencyKey,
         configRevision: config.revision,
       });
+      await writeOperationLog({
+        type: 'sync_received',
+        level: 'info',
+        syncRunId: run.id,
+        message: `后台手动同步请求已提交。`,
+        triggeredBy: input.triggeredBy,
+      });
       if (run.status !== 'published' && run.status !== 'failed') {
         await executeRun(run.id, input.triggeredBy, config.revision);
       }
@@ -63,6 +71,13 @@ async function executeRun(runId: string, triggeredBy: string, configRevision: st
   const runCollection = (await getMongoCollection(COLLECTION_NAMES.syncRuns)) as unknown as SyncRunCollection;
   const lockCollection = (await getMongoCollection(COLLECTION_NAMES.syncLocks)) as unknown as SyncLockCollection;
   if (!(await acquireSyncLock(lockCollection, runId))) {
+    await writeOperationLog({
+      type: 'sync_failed',
+      level: 'warning',
+      syncRunId: runId,
+      message: '同步失败：已有另一个同步任务正在运行。',
+      triggeredBy,
+    });
     await finalizeSyncRun(runCollection, runId, {
       status: 'failed',
       sourceResults: [],
@@ -79,6 +94,13 @@ async function executeRun(runId: string, triggeredBy: string, configRevision: st
     });
     await finalizeSyncRun(runCollection, runId, result);
   } catch (error) {
+    await writeOperationLog({
+      type: 'sync_failed',
+      level: 'error',
+      syncRunId: runId,
+      message: `同步失败：${publicSyncErrorMessage(error)}`,
+      triggeredBy,
+    });
     await finalizeSyncRun(runCollection, runId, {
       status: 'failed',
       sourceResults: [],

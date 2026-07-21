@@ -101,6 +101,7 @@ test('keeps collection names prefixed and exposes typed getters', () => {
   assert.deepEqual(Object.values(COLLECTION_NAMES).sort(), [
     'storage_foil_inventory_batches',
     'storage_foil_inventory_publications',
+    'storage_foil_operation_logs',
     'storage_foil_sync_locks',
     'storage_foil_sync_runs',
     'storage_foil_sync_sources',

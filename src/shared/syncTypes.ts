@@ -94,6 +94,40 @@ export interface SyncRunSummary {
   errorSummary?: string;
 }
 
+export type OperationLogType =
+  | 'sync_received'
+  | 'sync_started'
+  | 'source_synced'
+  | 'inventory_activity'
+  | 'sync_published'
+  | 'sync_failed';
+
+export type OperationLogLevel = 'info' | 'success' | 'warning' | 'error';
+
+export interface OperationLogEntry {
+  id: string;
+  type: OperationLogType;
+  level: OperationLogLevel;
+  syncRunId?: string;
+  sourceId?: string;
+  sourceName?: string;
+  fileId?: string;
+  worksheetId?: number;
+  worksheetName?: string;
+  month?: string;
+  batchCode?: string;
+  productModel?: string;
+  specification?: string;
+  shelf?: string;
+  inQty?: number;
+  outQty?: number;
+  stock?: number;
+  sourceRow?: number;
+  message: string;
+  triggeredBy: string;
+  createdAt: string;
+}
+
 export interface InventoryBootstrapResponse {
   user: import('./authTypes.ts').AuthUser;
   months: string[];
