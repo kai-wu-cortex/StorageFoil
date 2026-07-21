@@ -48,6 +48,7 @@ export interface SyncConfigCollections {
       filter: { _id: { $nin: string[] } },
       update: { $set: { enabled: boolean; updatedAt: Date; updatedBy: string } },
     ): Promise<{ acknowledged: boolean }>;
+    deleteMany(filter: { _id: { $nin: string[] } }): Promise<{ acknowledged: boolean; deletedCount?: number }>;
   };
 }
 
@@ -231,10 +232,7 @@ export async function updateSyncConfig(
       { upsert: true },
     );
   }
-  await collections.syncSources.updateMany(
-    { _id: { $nin: parsed.sources.map(source => source.id) } },
-    { $set: { enabled: false, updatedAt: now, updatedBy: options.updatedBy } },
-  );
+  await collections.syncSources.deleteMany({ _id: { $nin: parsed.sources.map(source => source.id) } });
 
   return getPublicSyncConfig(collections);
 }

@@ -125,7 +125,7 @@ export default function AdminSyncConsole({
         </Panel>
       </div>
 
-      <Panel title="数据源配置" subtitle="显示所有已保存来源；可维护数据源别名、File ID、工作表范围，并可停用来源。">
+      <Panel title="数据源配置" subtitle="显示所有已保存来源；可维护数据源别名、File ID、工作表范围，并可删除来源。">
         <div className="grid gap-3">
           {config.sources.map(source => (
             <SourceCard
@@ -171,9 +171,9 @@ function SourceCard({
     <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
         <input className={`${inputClass} font-bold`} value={source.name} onChange={event => onChange({ name: event.target.value })} aria-label={`${source.name} 名称`} />
-        <button type="button" onClick={onRemove} className="inline-flex items-center gap-1 rounded-xl border border-amber-200 bg-white px-2 py-2 text-xs font-bold text-amber-700 hover:bg-amber-50" aria-label={`停用 ${source.name}`}>
+        <button type="button" onClick={onRemove} className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-white px-2 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50" aria-label={`删除 ${source.name}`}>
           <Trash2 className="h-4 w-4" />
-          停用来源
+          删除来源
         </button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">

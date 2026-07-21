@@ -101,10 +101,14 @@ export function createAdminSyncController(options: {
   onStateChange?: (state: AdminSyncState) => void;
   onRefreshCurrentMonth?: () => Promise<void> | void;
   createSourceId?: (name: string) => string;
+  pollDelayMs?: number;
+  maxPollAttempts?: number;
 }) {
   let state = getInitialAdminSyncState();
   let triggerInFlight: Promise<void> | null = null;
   const refreshedRuns = new Set<string>();
+  const pollDelayMs = options.pollDelayMs ?? 1500;
+  const maxPollAttempts = options.maxPollAttempts ?? 80;
 
   const setState = (next: AdminSyncState) => {
     state = next;
@@ -170,9 +174,7 @@ export function createAdminSyncController(options: {
     removeSource(sourceId: string) {
       patchConfig({
         ...state.config,
-        sources: state.config.sources.map(source =>
-          source.id === sourceId ? { ...source, enabled: false } : source,
-        ),
+        sources: state.config.sources.filter(source => source.id !== sourceId),
       });
     },
 
@@ -227,7 +229,8 @@ export function createAdminSyncController(options: {
         setState({ ...state, isTriggering: true, error: null, message: null });
         try {
           const run = await options.api.triggerSync({ idempotencyKey: `admin-${Date.now()}` });
-          setState({ ...state, run, isTriggering: false, message: '同步任务已提交。' });
+          setState({ ...state, run, isTriggering: false, message: '同步任务已提交，正在读取运行结果。' });
+          await this.pollRunUntilTerminal(run.id);
         } catch (error) {
           setState({ ...state, isTriggering: false, error: error instanceof Error ? error.message : '同步触发失败。' });
         } finally {
@@ -249,6 +252,20 @@ export function createAdminSyncController(options: {
       } catch (error) {
         setState({ ...state, isPolling: false, error: error instanceof Error ? error.message : '同步状态读取失败。' });
       }
+    },
+
+    async pollRunUntilTerminal(runId: string) {
+      for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
+        await this.pollRunStatus(runId);
+        const status = state.run?.status;
+        if (status === 'published' || status === 'failed') return;
+        await new Promise(resolve => setTimeout(resolve, pollDelayMs));
+      }
+      setState({
+        ...state,
+        isPolling: false,
+        error: '同步任务仍在运行，请稍后刷新运行状态。',
+      });
     },
   };
 }

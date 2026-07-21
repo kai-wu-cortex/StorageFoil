@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { waitUntil } from '@vercel/functions';
 import { createApiFailure, createApiSuccess } from '../shared/apiTypes.ts';
 import { COLLECTION_NAMES } from './collections.ts';
 import { getMongoCollection } from './mongodb.ts';
@@ -36,9 +37,9 @@ function service(): AdminSyncService {
         idempotencyKey: input.idempotencyKey,
         configRevision: config.revision,
       });
-      void executeRun(run.id, input.triggeredBy, config.revision).catch(error => {
+      waitUntil(executeRun(run.id, input.triggeredBy, config.revision).catch(error => {
         console.error('StorageFoil admin sync execution failed.', error);
-      });
+      }));
       return run;
     },
     getRun: async runId => getSyncRun((await getMongoCollection(COLLECTION_NAMES.syncRuns)) as unknown as SyncRunCollection, runId),

@@ -46,6 +46,13 @@ function collections(): SyncConfigCollections & { state: { credentials: unknown;
         );
         return { acknowledged: true };
       },
+      deleteMany: async filter => {
+        const before = state.sources.length;
+        state.sources = state.sources.filter(source =>
+          (filter._id.$nin as string[]).includes((source as { _id: string })._id),
+        );
+        return { acknowledged: true, deletedCount: before - state.sources.length };
+      },
     },
   };
 }
@@ -193,4 +200,25 @@ test('source-only updates preserve existing WPS App ID redirect and App Key', as
   assert.equal(storedAfter.apiBase, 'https://openapi.wps.cn');
   assert.equal(storedAfter.redirectUri, 'https://storage.example.com/api/admin/wps/callback');
   assert.equal(decryptSecret(storedAfter.appKeyEncrypted, key), 'new-app-key');
+});
+
+test('source updates delete removed source documents instead of disabling them', async () => {
+  const coll = collections();
+  const key = resolveEncryptionKey(randomBytes(32).toString('base64'));
+  const first = await updateSyncConfig(coll, validInput(3), {
+    encryptionKey: key,
+    updatedBy: 'admin',
+    expectedRevision: '',
+  });
+
+  const next = validInput(2);
+  next.credentials = {} as typeof next.credentials;
+  await updateSyncConfig(coll, next, {
+    encryptionKey: key,
+    updatedBy: 'admin',
+    expectedRevision: first.revision,
+  });
+
+  const publicConfig = await getPublicSyncConfig(coll);
+  assert.deepEqual(publicConfig.sources.map(source => source.id), ['source-1', 'source-2']);
 });

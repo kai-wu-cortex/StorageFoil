@@ -96,7 +96,7 @@ test('admin sync controller saves sources without sending App ID or App Key', as
   assert.equal(savedBody?.sources.length, 2);
 });
 
-test('admin sync controller keeps saved sources visible by disabling instead of removing', async () => {
+test('admin sync controller deletes sources from the saved source list', async () => {
   const api: AdminSyncClient = {
     getSyncConfig: async () => config,
     updateSyncConfig: async body => body as typeof config,
@@ -109,9 +109,7 @@ test('admin sync controller keeps saved sources visible by disabling instead of 
   await controller.load();
   controller.removeSource('pl');
 
-  assert.equal(controller.getState().config.sources.length, 1);
-  assert.equal(controller.getState().config.sources[0].id, 'pl');
-  assert.equal(controller.getState().config.sources[0].enabled, false);
+  assert.equal(controller.getState().config.sources.length, 0);
 });
 
 test('admin sync controller authorizes triggers once polls and refreshes only after published', async () => {
@@ -138,15 +136,14 @@ test('admin sync controller authorizes triggers once polls and refreshes only af
   const controller = createAdminSyncController({
     api,
     onRefreshCurrentMonth: async () => { refreshCount += 1; },
+    pollDelayMs: 0,
   });
 
   await controller.authorizeWps(url => assert.match(url, /oauth2\/auth/));
   await Promise.all([controller.triggerSync(), controller.triggerSync()]);
-  await controller.pollRunStatus('run-1');
-  assert.equal(refreshCount, 0);
-  await controller.pollRunStatus('run-1');
 
   assert.equal(triggerCount, 1);
   assert.equal(controller.getState().run?.status, 'published');
   assert.equal(refreshCount, 1);
+  assert.deepEqual(seenRunIds, ['run-1', 'run-1']);
 });
