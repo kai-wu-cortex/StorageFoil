@@ -3,7 +3,7 @@ import { createApiFailure, createApiSuccess } from '../shared/apiTypes.ts';
 import { COLLECTION_NAMES, type StorageFoilWpsCredentialsDocument } from './collections.ts';
 import { getMongoCollection } from './mongodb.ts';
 import { getSessionSecret, requireRole, sendJson } from './sessionAuth.ts';
-import { exchangeWpsAuthorizationCode } from './wpsTokenService.ts';
+import { WpsTokenRequestError, exchangeWpsAuthorizationCode } from './wpsTokenService.ts';
 
 interface WpsOAuthService {
   buildAuthorizationUrl(user: string): Promise<string>;
@@ -78,6 +78,22 @@ export async function wpsCallbackApiHandler(
     sendJson(res, 400, createApiFailure('INVALID_CODE', '缺少 WPS 授权 Code。', 'local'));
     return;
   }
-  await service().exchangeCode(code, user.username);
+  try {
+    await service().exchangeCode(code, user.username);
+  } catch (error) {
+    if (error instanceof WpsTokenRequestError) {
+      sendJson(
+        res,
+        502,
+        createApiFailure(
+          'WPS_TOKEN_ERROR',
+          `WPS 授权失败：${error.message}。请确认 App ID 与 App Key 属于同一个 WPS 应用，并且回调地址已登记。`,
+          'local',
+        ),
+      );
+      return;
+    }
+    throw error;
+  }
   res.redirect(302, '/?admin=wps&authorized=1');
 }

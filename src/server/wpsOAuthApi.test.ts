@@ -8,6 +8,7 @@ import {
   wpsAuthorizationUrlApiHandler,
   wpsCallbackApiHandler,
 } from './wpsOAuthApi.ts';
+import { WpsTokenRequestError } from './wpsTokenService.ts';
 
 const admin: AuthUser = { id: 'admin', username: 'admin', displayName: 'Admin', role: 'admin' };
 
@@ -77,4 +78,24 @@ test('OAuth callback exchanges code server-side and redirects without token data
   assert.equal(exchangedCode, 'auth-code');
   assert.equal(state.statusCode, 302);
   assert.equal(state.headers.Location, '/?admin=wps&authorized=1');
+});
+
+test('OAuth callback surfaces WPS token errors without masking them as Mongo errors', async () => {
+  process.env.STORAGE_FOIL_SESSION_SECRET = 'secret';
+  setWpsOAuthServiceForTests({
+    buildAuthorizationUrl: async () => '',
+    exchangeCode: async () => {
+      throw new WpsTokenRequestError('invalid_client');
+    },
+  });
+
+  const { res, state } = response();
+  await wpsCallbackApiHandler(request({ code: 'auth-code' }), res as Response);
+
+  assert.equal(state.statusCode, 502);
+  assert.deepEqual(state.body, {
+    success: false,
+    error: { code: 'WPS_TOKEN_ERROR', requestId: 'local' },
+    message: 'WPS 授权失败：invalid_client。请确认 App ID 与 App Key 属于同一个 WPS 应用，并且回调地址已登记。',
+  });
 });

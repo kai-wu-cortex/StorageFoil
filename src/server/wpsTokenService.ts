@@ -27,6 +27,13 @@ export interface WpsTokenOptions {
   now?: Date;
 }
 
+export class WpsTokenRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WpsTokenRequestError';
+  }
+}
+
 let collectionResolver: (() => Promise<WpsCredentialsCollection>) | null = null;
 
 export function setWpsCredentialsCollectionForTests(resolver: (() => Promise<WpsCredentialsCollection>) | null): void {
@@ -54,7 +61,7 @@ async function requestToken(
   });
   const data = (await response.json()) as WpsTokenResponse & { msg?: string; message?: string };
   if (!response.ok || !data.access_token) {
-    throw new Error(`WPS token request failed: ${sanitizeWpsMessage(data.msg || data.message || response.statusText)}`);
+    throw new WpsTokenRequestError(sanitizeWpsMessage(data.msg || data.message || response.statusText));
   }
   return data;
 }
