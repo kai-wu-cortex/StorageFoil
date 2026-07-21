@@ -197,6 +197,20 @@ export function createAdminSyncController(options: {
       }
     },
 
+    async saveSources() {
+      setState({ ...state, isSaving: true, error: null, message: null });
+      try {
+        const config = await options.api.updateSyncConfig({
+          revision: state.config.revision,
+          credentials: {},
+          sources: state.config.sources,
+        });
+        setState({ ...state, config, isSaving: false, message: '数据源已保存。', error: null });
+      } catch (error) {
+        setState({ ...state, isSaving: false, error: error instanceof Error ? error.message : '数据源保存失败。' });
+      }
+    },
+
     async authorizeWps(openUrl: (url: string) => void = url => window.location.assign(url)) {
       setState({ ...state, error: null });
       try {
@@ -268,6 +282,7 @@ export function useAdminSync(options: {
     removeSource: useCallback((sourceId: string) => controllerRef.current?.removeSource(sourceId), []),
     updateCredentials: useCallback((values: Partial<PublicWpsCredentials>) => controllerRef.current?.updateCredentials(values), []),
     save: useCallback((appKey?: string) => controllerRef.current?.save(appKey), []),
+    saveSources: useCallback(() => controllerRef.current?.saveSources(), []),
     authorizeWps: useCallback(() => controllerRef.current?.authorizeWps(), []),
     triggerSync: useCallback(() => controllerRef.current?.triggerSync(), []),
     pollRunStatus: useCallback((runId: string) => controllerRef.current?.pollRunStatus(runId), []),

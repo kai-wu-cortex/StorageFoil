@@ -149,7 +149,7 @@ export default function AdminSyncConsole({
               <Plus className="h-3.5 w-3.5" /> 新增
             </button>
           </div>
-          <button type="button" onClick={() => void sync.save(appKey)} disabled={sync.isSaving} className={primaryButtonClass}>
+          <button type="button" onClick={() => void sync.saveSources()} disabled={sync.isSaving} className={primaryButtonClass}>
             <Save className="h-3.5 w-3.5" /> 保存所有数据源
           </button>
         </div>

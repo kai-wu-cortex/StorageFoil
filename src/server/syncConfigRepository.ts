@@ -134,10 +134,10 @@ export function validateSyncConfigInput(input: SyncConfigUpdateInput): SyncConfi
   return {
     revision: input.revision,
     credentials: {
-      apiBase: input.credentials.apiBase?.trim() || 'https://openapi.wps.cn',
-      appId: input.credentials.appId?.trim() || '',
+      apiBase: input.credentials.apiBase?.trim() || undefined,
+      appId: input.credentials.appId?.trim() || undefined,
       appKey: input.credentials.appKey,
-      redirectUri: input.credentials.redirectUri?.trim() || '',
+      redirectUri: input.credentials.redirectUri?.trim() || undefined,
       clearCredential: input.credentials.clearCredential,
     },
     sources: input.sources.map(source => {

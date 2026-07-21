@@ -162,3 +162,35 @@ test('preserves existing secrets and rejects stale revisions', async () => {
     /CONFIG_CONFLICT/,
   );
 });
+
+test('source-only updates preserve existing WPS App ID redirect and App Key', async () => {
+  const coll = collections();
+  const key = resolveEncryptionKey(randomBytes(32).toString('base64'));
+  const first = await updateSyncConfig(coll, validInput(), {
+    encryptionKey: key,
+    updatedBy: 'admin',
+    expectedRevision: '',
+  });
+
+  const storedBefore = coll.state.credentials as {
+    appId: string;
+    apiBase: string;
+    redirectUri: string;
+    appKeyEncrypted: { iv: string; authTag: string; ciphertext: string };
+  };
+  const sourceOnly = validInput();
+  sourceOnly.credentials = {} as typeof sourceOnly.credentials;
+  sourceOnly.sources[0].alias = '只更新来源';
+
+  await updateSyncConfig(coll, sourceOnly, {
+    encryptionKey: key,
+    updatedBy: 'admin',
+    expectedRevision: first.revision,
+  });
+
+  const storedAfter = coll.state.credentials as typeof storedBefore;
+  assert.equal(storedAfter.appId, 'app-id');
+  assert.equal(storedAfter.apiBase, 'https://openapi.wps.cn');
+  assert.equal(storedAfter.redirectUri, 'https://storage.example.com/api/admin/wps/callback');
+  assert.equal(decryptSecret(storedAfter.appKeyEncrypted, key), 'new-app-key');
+});

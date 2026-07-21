@@ -73,6 +73,29 @@ test('admin sync controller loads config edits arbitrary sources and handles sav
   assert.ok(states.length >= 4);
 });
 
+test('admin sync controller saves sources without sending App ID or App Key', async () => {
+  let savedBody: Parameters<AdminSyncClient['updateSyncConfig']>[0] | null = null;
+  const api: AdminSyncClient = {
+    getSyncConfig: async () => config,
+    updateSyncConfig: async body => {
+      savedBody = body;
+      return { ...config, sources: body.sources };
+    },
+    getAuthorizationUrl: async () => ({ url: 'https://openapi.wps.cn/oauth2/auth' }),
+    triggerSync: async () => ({ id: 'run-1', status: 'queued' }),
+    getRun: async () => ({ id: 'run-1', status: 'published' }),
+  };
+  const controller = createAdminSyncController({ api });
+
+  await controller.load();
+  controller.updateCredentials({ appId: 'new-app-id' });
+  controller.addSource({ name: 'PK', alias: 'PK 入库', address: 'https://kdocs.cn/l/pk-file' });
+  await controller.saveSources();
+
+  assert.deepEqual(savedBody?.credentials, {});
+  assert.equal(savedBody?.sources.length, 2);
+});
+
 test('admin sync controller keeps saved sources visible by disabling instead of removing', async () => {
   const api: AdminSyncClient = {
     getSyncConfig: async () => config,
