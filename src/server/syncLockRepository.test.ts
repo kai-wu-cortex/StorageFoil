@@ -14,8 +14,12 @@ test('sync lock acquisition handles success conflict expiry and owner-only relea
     },
     updateOne: async (filter: { ownerRunId?: string }) => {
       if (filter.ownerRunId !== 'run-1') return { modifiedCount: 0 };
-      locked = false;
       return { modifiedCount: 1 };
+    },
+    deleteOne: async (filter: { ownerRunId?: string }) => {
+      if (filter.ownerRunId !== 'run-1') return { deletedCount: 0 };
+      locked = false;
+      return { deletedCount: 1 };
     },
   };
 
@@ -24,4 +28,18 @@ test('sync lock acquisition handles success conflict expiry and owner-only relea
   assert.equal(await releaseSyncLock(collection, 'run-2'), false);
   assert.equal(await releaseSyncLock(collection, 'run-1'), true);
   assert.equal(updates.length, 2);
+});
+
+test('sync lock treats duplicate upsert as an active lock instead of throwing', async () => {
+  const collection: SyncLockCollection = {
+    findOneAndUpdate: async () => {
+      const error = new Error('duplicate key') as Error & { code: number };
+      error.code = 11000;
+      throw error;
+    },
+    updateOne: async () => ({ modifiedCount: 0 }),
+    deleteOne: async () => ({ deletedCount: 0 }),
+  };
+
+  assert.equal(await acquireSyncLock(collection, 'run-2'), false);
 });
