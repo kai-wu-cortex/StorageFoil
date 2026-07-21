@@ -1,6 +1,14 @@
+import { useState } from 'react';
 import { InventoryBatch } from '../types';
 import { motion } from 'motion/react';
-import { Boxes, TrendingUp, TrendingDown, ClipboardList, Layers } from 'lucide-react';
+import { Boxes, TrendingUp, TrendingDown, ClipboardList, Layers, Plus, X, Trash2 } from 'lucide-react';
+import { useLocalStorageState } from '../hooks/useLocalStorageState';
+import {
+  countWarningFilterMatches,
+  DEFAULT_WARNING_FILTER_TAGS,
+  normalizeWarningFilterQuery,
+  type WarningFilterTag,
+} from '../lib/warningFilters';
 
 interface StatsDashboardProps {
   batches: InventoryBatch[];
@@ -36,11 +44,70 @@ export default function StatsDashboard({
   const totalInflow = batches.reduce((sum, b) => sum + b.inflowQty, 0);
   const totalOutflow = batches.reduce((sum, b) => sum + b.outflowQty, 0);
 
-  // Defect classifications
-  const defectStats = {
-    whiteBorder: batches.filter((b) => b.remarks.includes('白边')).length,
-    pitting: batches.filter((b) => b.remarks.includes('麻点')).length,
-    adhesiveIssues: batches.filter((b) => b.remarks.includes('胶') || b.remarks.includes('分切') || b.remarks.includes('胶底')).length,
+  const [warningFilterTags, setWarningFilterTags] = useLocalStorageState<WarningFilterTag[]>(
+    'storage_foil_pref_v1_warning_filter_tags',
+    DEFAULT_WARNING_FILTER_TAGS,
+  );
+  const [newTagLabel, setNewTagLabel] = useState('');
+  const [newTagQuery, setNewTagQuery] = useState('');
+
+  const colorClasses: Record<WarningFilterTag['color'], { active: string; idle: string; dot: string }> = {
+    rose: {
+      active: 'bg-rose-600 text-white shadow-sm border-rose-600',
+      idle: 'bg-rose-50 text-rose-700 hover:bg-rose-100/70 border-rose-100',
+      dot: 'bg-rose-500',
+    },
+    amber: {
+      active: 'bg-amber-600 text-white shadow-sm border-amber-600',
+      idle: 'bg-amber-50 text-amber-700 hover:bg-amber-100/70 border-amber-100',
+      dot: 'bg-amber-500',
+    },
+    blue: {
+      active: 'bg-blue-600 text-white shadow-sm border-blue-600',
+      idle: 'bg-blue-50 text-blue-700 hover:bg-blue-100/70 border-blue-100',
+      dot: 'bg-blue-500',
+    },
+    emerald: {
+      active: 'bg-emerald-600 text-white shadow-sm border-emerald-600',
+      idle: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70 border-emerald-100',
+      dot: 'bg-emerald-500',
+    },
+    violet: {
+      active: 'bg-violet-600 text-white shadow-sm border-violet-600',
+      idle: 'bg-violet-50 text-violet-700 hover:bg-violet-100/70 border-violet-100',
+      dot: 'bg-violet-500',
+    },
+  };
+
+  const addWarningFilterTag = () => {
+    const label = newTagLabel.trim();
+    const query = normalizeWarningFilterQuery(newTagQuery || newTagLabel);
+    if (!label || !query) return;
+    const exists = warningFilterTags.some(tag => tag.label === label || tag.query === query);
+    if (exists) {
+      setNewTagLabel('');
+      setNewTagQuery('');
+      return;
+    }
+    const colors: WarningFilterTag['color'][] = ['rose', 'amber', 'blue', 'emerald', 'violet'];
+    setWarningFilterTags([
+      ...warningFilterTags,
+      {
+        id: `custom-${Date.now()}`,
+        label,
+        query,
+        color: colors[warningFilterTags.length % colors.length],
+      },
+    ]);
+    setNewTagLabel('');
+    setNewTagQuery('');
+  };
+
+  const deleteWarningFilterTag = (tagId: string, query: string) => {
+    setWarningFilterTags(warningFilterTags.filter(tag => tag.id !== tagId));
+    if (selectedWarningFilter === query) {
+      onSelectWarningFilter(null);
+    }
   };
 
   // Determine active states for the cards
@@ -180,68 +247,85 @@ export default function StatsDashboard({
         className="bg-white py-2 px-3.5 rounded-xl border border-slate-100 shadow-xs"
         id="defect-filter-panel"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-rose-500" />
             <div>
               <h3 className="text-xs font-semibold text-slate-800 font-sans">异常备注快速检索</h3>
-              <p className="text-[10px] text-slate-500">点击标签快速筛选含有特定异常或特殊工艺备注的批次</p>
+              <p className="text-[10px] text-slate-500">添加常用筛选标签；筛选条件支持用 /、,、| 分隔多个备注关键词</p>
             </div>
           </div>
-          {selectedWarningFilter && (
+          <div className="flex flex-col sm:flex-row gap-1.5 xl:w-[520px]">
+            <input
+              value={newTagLabel}
+              onChange={event => setNewTagLabel(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Enter') addWarningFilterTag();
+              }}
+              placeholder="标签名，例如：咖啡底"
+              className="min-w-0 flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-500"
+            />
+            <input
+              value={newTagQuery}
+              onChange={event => setNewTagQuery(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Enter') addWarningFilterTag();
+              }}
+              placeholder="筛选条件，例如：咖啡底/深底"
+              className="min-w-0 flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-500"
+            />
             <button
-              onClick={() => onSelectWarningFilter(null)}
-              className="text-[11px] font-medium text-slate-500 hover:text-slate-800 underline self-start sm:self-auto"
-              id="clear-warning-filter-btn"
+              onClick={addWarningFilterTag}
+              className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800"
             >
-              重置筛选
+              <Plus className="w-3.5 h-3.5" />
+              新增
             </button>
-          )}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-1.5 mt-2">
-          <button
-            onClick={() => onSelectWarningFilter(selectedWarningFilter === '白边' ? null : '白边')}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-              selectedWarningFilter === '白边'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'bg-rose-50 text-rose-700 hover:bg-rose-100/70 border border-rose-100'
-            }`}
-            id="filter-white-border-btn"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-            白边批次 ({defectStats.whiteBorder})
-          </button>
+          {warningFilterTags.map(tag => {
+            const isSelected = selectedWarningFilter === tag.query;
+            const classes = colorClasses[tag.color] ?? colorClasses.blue;
+            return (
+              <span
+                key={tag.id}
+                className={`group inline-flex items-center gap-1 rounded-lg border text-xs font-medium transition-all ${
+                  isSelected ? classes.active : classes.idle
+                }`}
+              >
+                <button
+                  onClick={() => onSelectWarningFilter(isSelected ? null : tag.query)}
+                  className="inline-flex items-center gap-1.5 py-1 pl-2 pr-1"
+                  title={`筛选条件：${tag.query}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : classes.dot}`} />
+                  {tag.label} ({countWarningFilterMatches(batches, tag.query)})
+                </button>
+                <button
+                  onClick={() => deleteWarningFilterTag(tag.id, tag.query)}
+                  className={`py-1 pr-2 pl-0.5 opacity-55 hover:opacity-100 ${
+                    isSelected ? 'text-white' : 'text-slate-400 hover:text-rose-600'
+                  }`}
+                  title="删除标签"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </span>
+            );
+          })}
 
-          <button
-            onClick={() => onSelectWarningFilter(selectedWarningFilter === '麻点' ? null : '麻点')}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-              selectedWarningFilter === '麻点'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'bg-amber-50 text-amber-700 hover:bg-amber-100/70 border border-amber-100'
-            }`}
-            id="filter-pitting-btn"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            麻点批次 ({defectStats.pitting})
-          </button>
-
-          <button
-            onClick={() => onSelectWarningFilter(selectedWarningFilter === '胶' ? null : '胶')}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-              selectedWarningFilter === '胶'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-blue-50 text-blue-700 hover:bg-blue-100/70 border border-blue-100'
-            }`}
-            id="filter-adhesive-btn"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-            胶底/分切异常 ({defectStats.adhesiveIssues})
-          </button>
-
-          <div className="ml-auto text-[10px] text-slate-400 self-center hidden md:block">
-            双击表格中“备注”列亦可直接在线编辑修改异常备注。
-          </div>
+          {selectedWarningFilter && (
+            <button
+              onClick={() => onSelectWarningFilter(null)}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200"
+              id="clear-warning-filter-btn"
+            >
+              <X className="w-3 h-3" />
+              重置筛选
+            </button>
+          )}
         </div>
       </motion.div>
     </div>

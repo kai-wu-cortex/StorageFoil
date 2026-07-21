@@ -16,6 +16,7 @@ import OperationLogsPanel from './components/OperationLogsPanel';
 import { useAuthSession } from './hooks/useAuthSession';
 import { useInventoryData } from './hooks/useInventoryData';
 import { useLocalStorageState } from './hooks/useLocalStorageState';
+import { matchesWarningFilter } from './lib/warningFilters';
 import type { AuthUser } from './shared/authTypes';
 import {
   Clock,
@@ -146,17 +147,7 @@ function AuthenticatedStorageFoilApp({
         batch.specification.toLowerCase().includes(searchLower) ||
         batch.productModel.toLowerCase().includes(searchLower);
 
-      let matchesWarning = true;
-      if (selectedWarningFilter === '白边') {
-        matchesWarning = batch.remarks.includes('白边');
-      } else if (selectedWarningFilter === '麻点') {
-        matchesWarning = batch.remarks.includes('麻点');
-      } else if (selectedWarningFilter === '胶') {
-        matchesWarning =
-          batch.remarks.includes('胶') ||
-          batch.remarks.includes('分切') ||
-          batch.remarks.includes('胶底');
-      }
+      const matchesWarning = matchesWarningFilter(batch, selectedWarningFilter);
 
       let matchesStockLevel = true;
       if (selectedStockLevelFilter === 'low') {

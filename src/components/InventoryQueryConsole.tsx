@@ -1,5 +1,6 @@
 import { Search, Filter, AlertTriangle, TrendingDown, Boxes, RefreshCw, Layers } from 'lucide-react';
 import { InventoryBatch } from '../types';
+import { countWarningFilterMatches, matchesWarningFilter } from '../lib/warningFilters';
 
 interface InventoryQueryConsoleProps {
   batches: InventoryBatch[];
@@ -38,14 +39,7 @@ export default function InventoryQueryConsole({
         b.productModel.toLowerCase().includes(searchLower);
 
       // Warning filter
-      let matchesWarning = true;
-      if (selectedWarningFilter === '白边') {
-        matchesWarning = b.remarks.includes('白边');
-      } else if (selectedWarningFilter === '麻点') {
-        matchesWarning = b.remarks.includes('麻点');
-      } else if (selectedWarningFilter === '胶') {
-        matchesWarning = b.remarks.includes('胶') || b.remarks.includes('分切') || b.remarks.includes('胶底');
-      }
+      const matchesWarning = matchesWarningFilter(b, selectedWarningFilter);
 
       // Stock level filter
       let matchesStockLevel = true;
@@ -76,9 +70,9 @@ export default function InventoryQueryConsole({
   };
 
   // Defect counts for subtext tags
-  const whiteBorderCount = batches.filter((b) => b.remarks.includes('白边')).length;
-  const pittingCount = batches.filter((b) => b.remarks.includes('麻点')).length;
-  const adhesiveCount = batches.filter((b) => b.remarks.includes('胶') || b.remarks.includes('分切') || b.remarks.includes('胶底')).length;
+  const whiteBorderCount = countWarningFilterMatches(batches, '白边');
+  const pittingCount = countWarningFilterMatches(batches, '麻点');
+  const adhesiveCount = countWarningFilterMatches(batches, '胶底/分切/胶');
   const lowStockCount = batches.filter((b) => b.totalStock > 0 && b.totalStock <= 5).length;
   const highStockCount = batches.filter((b) => b.totalStock > 50).length;
 
@@ -173,9 +167,9 @@ export default function InventoryQueryConsole({
           </button>
 
           <button
-            onClick={() => setSelectedWarningFilter(selectedWarningFilter === '胶' ? null : '胶')}
+            onClick={() => setSelectedWarningFilter(selectedWarningFilter === '胶底/分切/胶' ? null : '胶底/分切/胶')}
             className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1 ${
-              selectedWarningFilter === '胶'
+              selectedWarningFilter === '胶底/分切/胶'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100/70'
             }`}

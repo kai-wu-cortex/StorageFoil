@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import { InventoryBatch } from '../types';
 import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import { Search, Tag, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { matchesWarningFilter } from '../lib/warningFilters';
 
 interface InventoryTableProps {
   batches: InventoryBatch[];
@@ -59,14 +60,7 @@ export default function InventoryTable({
     const matchesShelf = selectedShelf ? b.shelf === selectedShelf : true;
 
     // Warning filter
-    let matchesWarning = true;
-    if (selectedWarningFilter === '白边') {
-      matchesWarning = b.remarks.includes('白边');
-    } else if (selectedWarningFilter === '麻点') {
-      matchesWarning = b.remarks.includes('麻点');
-    } else if (selectedWarningFilter === '胶') {
-      matchesWarning = b.remarks.includes('胶') || b.remarks.includes('分切') || b.remarks.includes('胶底');
-    }
+    const matchesWarning = matchesWarningFilter(b, selectedWarningFilter);
 
     // Stock level filter
     let matchesStockLevel = true;
