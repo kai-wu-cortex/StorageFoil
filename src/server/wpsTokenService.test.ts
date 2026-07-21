@@ -12,8 +12,9 @@ test.afterEach(() => {
   setWpsCredentialsCollectionForTests(null);
 });
 
-test('token service returns non-expired encrypted access token without refreshing', async () => {
-  let updateCalled = false;
+test('token service refreshes on every sync request even when access token is still valid', async () => {
+  let persisted: Record<string, unknown> | null = null;
+  let refreshCalls = 0;
   setWpsCredentialsCollectionForTests(async () => ({
     findOne: async () => ({
       _id: 'global',
@@ -27,16 +28,35 @@ test('token service returns non-expired encrypted access token without refreshin
       updatedAt: new Date(),
       updatedBy: 'admin',
     }),
-    updateOne: async () => {
-      updateCalled = true;
+    updateOne: async (_filter, update) => {
+      persisted = update.$set;
       return { acknowledged: true };
     },
   }));
 
-  const token = await getValidWpsAccessToken({ encryptionKey: key, fetchImpl: async () => new Response(null) });
+  const token = await getValidWpsAccessToken({
+    encryptionKey: key,
+    fetchImpl: async (_url, init) => {
+      refreshCalls += 1;
+      const body = init?.body?.toString() || '';
+      assert.match(body, /grant_type=refresh_token/);
+      assert.match(body, /refresh_token=refresh-token/);
+      return new Response(
+        JSON.stringify({
+          access_token: 'access-refreshed',
+          refresh_token: 'refresh-rotated',
+          expires_in: 3600,
+          refresh_expires_in: 7200,
+        }),
+        { status: 200 },
+      );
+    },
+  });
 
-  assert.equal(token.accessToken, 'access-token');
-  assert.equal(updateCalled, false);
+  assert.equal(token.accessToken, 'access-refreshed');
+  assert.equal(refreshCalls, 1);
+  assert.ok(persisted?.accessTokenEncrypted);
+  assert.ok(persisted?.refreshTokenEncrypted);
 });
 
 test('token service refreshes before expiry and persists encrypted rotated tokens', async () => {

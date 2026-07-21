@@ -45,10 +45,6 @@ async function getCollection(): Promise<WpsCredentialsCollection> {
   return getMongoCollection<StorageFoilWpsCredentialsDocument>(COLLECTION_NAMES.wpsCredentials);
 }
 
-function tokenStillValid(expiresAt: Date | undefined, now: Date): boolean {
-  return Boolean(expiresAt && expiresAt.getTime() - now.getTime() > 5 * 60 * 1000);
-}
-
 async function requestToken(
   credential: StorageFoilWpsCredentialsDocument,
   body: Record<string, string>,
@@ -124,12 +120,6 @@ export async function getValidWpsAccessToken(options: WpsTokenOptions = {}): Pro
   const credential = await collection.findOne({ _id: 'global' });
   if (!credential?.appKeyEncrypted || !credential.refreshTokenEncrypted) {
     throw new Error('WPS authorization is required.');
-  }
-  if (credential.accessTokenEncrypted && tokenStillValid(credential.accessExpiresAt, now)) {
-    return {
-      accessToken: decryptSecret(credential.accessTokenEncrypted, key),
-      apiBase: credential.apiBase,
-    };
   }
   const appKey = decryptSecret(credential.appKeyEncrypted, key);
   const refreshToken = decryptSecret(credential.refreshTokenEncrypted, key);
