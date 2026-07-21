@@ -262,7 +262,7 @@ export function useInventoryData(user: AuthUser | null, generation: string | nul
 
   const batchesByMonth = useMemo(
     () => controllerRef.current?.getBatchesByMonth() ?? {},
-    [state.batches, state.currentMonth],
+    [state],
   );
 
   return { ...state, batchesByMonth, loadMonth, prefetchMonth, retry, clear, checkForUpdates, dismissPendingUpdate };
