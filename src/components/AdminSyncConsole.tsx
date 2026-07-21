@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { Clock3, Database, KeyRound, Loader2, Play, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { Database, KeyRound, Loader2, Play, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import type { AuthUser } from '../shared/authTypes';
-import type { OperationLogEntry, OperationLogType } from '../shared/syncTypes';
 import type { WpsSyncSourceConfig } from '../shared/syncTypes';
 import { useAdminSync } from '../hooks/useAdminSync';
 
@@ -131,13 +130,6 @@ export default function AdminSyncConsole({
         </Panel>
       </div>
 
-      <OperationLogsPanel
-        logs={sync.logs}
-        isLoading={sync.isLoadingLogs}
-        filter={sync.logTypeFilter}
-        onFilter={sync.setLogTypeFilter}
-        onRefresh={sync.loadOperationLogs}
-      />
 
       <Panel title="数据源配置" subtitle="显示所有已保存来源；可维护数据源别名、File ID、工作表范围，并可删除来源。">
         <div className="grid gap-3">
@@ -170,111 +162,6 @@ export default function AdminSyncConsole({
       </Panel>
     </section>
   );
-}
-
-const LOG_TYPE_OPTIONS: Array<{ value: OperationLogType | 'all'; label: string }> = [
-  { value: 'all', label: '全部' },
-  { value: 'sync_received', label: '请求' },
-  { value: 'sync_started', label: '开始' },
-  { value: 'source_synced', label: '工作表' },
-  { value: 'inventory_activity', label: '出入库' },
-  { value: 'sync_published', label: '发布' },
-  { value: 'sync_failed', label: '失败' },
-];
-
-function OperationLogsPanel({
-  logs,
-  isLoading,
-  filter,
-  onFilter,
-  onRefresh,
-}: {
-  logs: OperationLogEntry[];
-  isLoading: boolean;
-  filter: OperationLogType | 'all';
-  onFilter: (type: OperationLogType | 'all') => void;
-  onRefresh: () => Promise<void> | void;
-}) {
-  return (
-    <Panel title="操作日志" subtitle="记录 WPS 同步请求、同步时间、工作表结果以及出入库明细。">
-      <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-1.5">
-          {LOG_TYPE_OPTIONS.map(option => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => onFilter(option.value)}
-              className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
-                filter === option.value
-                  ? 'bg-slate-900 text-white'
-                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <button type="button" onClick={() => void onRefresh()} className={secondaryButtonClass}>
-          {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          刷新日志
-        </button>
-      </div>
-      <div className="max-h-[420px] space-y-2 overflow-auto pr-1">
-        {logs.length ? logs.map(log => <OperationLogRow key={log.id} log={log} />) : (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-5 text-center text-xs font-semibold text-slate-500">
-            暂无操作日志。
-          </div>
-        )}
-      </div>
-    </Panel>
-  );
-}
-
-function OperationLogRow({ log }: { log: OperationLogEntry }) {
-  const levelClass =
-    log.level === 'error'
-      ? 'border-rose-200 bg-rose-50 text-rose-700'
-      : log.level === 'warning'
-        ? 'border-amber-200 bg-amber-50 text-amber-700'
-        : log.level === 'success'
-          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-          : 'border-slate-200 bg-slate-50 text-slate-700';
-  return (
-    <div className={`rounded-xl border px-3 py-2 ${levelClass}`}>
-      <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
-        <div className="min-w-0">
-          <div className="text-xs font-bold leading-relaxed text-slate-900">{log.message}</div>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-500">
-            {log.sourceName && <span>来源：{log.sourceName}</span>}
-            {log.month && <span>月份：{log.month}</span>}
-            {log.worksheetName && <span>工作表：{log.worksheetName}</span>}
-            {log.fileId && <span>File ID：{log.fileId}</span>}
-            {log.batchCode && <span>批次：{log.batchCode}</span>}
-          </div>
-          {log.type === 'inventory_activity' && (
-            <div className="mt-1 flex flex-wrap gap-2 text-[10px] font-bold text-slate-600">
-              {log.productModel && <span>型号：{log.productModel}</span>}
-              {log.specification && <span>规格：{log.specification}</span>}
-              {log.shelf && <span>货架：{log.shelf}</span>}
-              <span>入库：{log.inQty ?? 0}</span>
-              <span>出库：{log.outQty ?? 0}</span>
-              <span>库存：{log.stock ?? 0}</span>
-            </div>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-1 text-[10px] font-bold text-slate-500">
-          <Clock3 className="h-3 w-3" />
-          {formatLogTime(log.createdAt)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function formatLogTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('zh-CN', { hour12: false });
 }
 
 function SourceCard({

@@ -12,14 +12,12 @@ import AuthLoadingScreen from './components/AuthLoadingScreen';
 import StorageFoilLogin from './components/StorageFoilLogin';
 import DataFreshnessBadge from './components/DataFreshnessBadge';
 import AdminSyncConsole from './components/AdminSyncConsole';
+import OperationLogsPanel from './components/OperationLogsPanel';
 import { useAuthSession } from './hooks/useAuthSession';
 import { useInventoryData } from './hooks/useInventoryData';
 import { useLocalStorageState } from './hooks/useLocalStorageState';
 import type { AuthUser } from './shared/authTypes';
-import { motion } from 'motion/react';
 import {
-  ArrowDownRight,
-  ArrowUpRight,
   Clock,
   Database,
   Download,
@@ -479,7 +477,7 @@ function AuthenticatedStorageFoilApp({
             <TimeScaleView batches={sourceFilteredBatches} transactions={transactions} currentMonth={currentMonth} />
           )}
 
-          {activeTab === 'logs' && <ReadOnlyLogs transactions={transactions} />}
+          {activeTab === 'logs' && <OperationLogsPanel />}
 
           {user.role === 'admin' && activeTab === 'management' && (
             <div className="space-y-4 animate-fade-in" id="admin-sync-management-section">
@@ -545,53 +543,5 @@ function TabButton({
       {icon}
       {label}
     </button>
-  );
-}
-
-function ReadOnlyLogs({ transactions }: { transactions: TransactionHistory[] }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden"
-      id="transactions-logs-section"
-    >
-      <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-800">系统操作流水变动日志</h3>
-          <p className="text-xs text-slate-500">当前阶段只展示 MongoDB 已发布库存，历史流水将在同步发布中提供。</p>
-        </div>
-        <div className="px-2 py-1 rounded-md bg-slate-50 text-[10px] font-mono text-slate-400">
-          共计 {transactions.length} 条记录
-        </div>
-      </div>
-      {transactions.length > 0 ? (
-        <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto no-scrollbar">
-          {transactions.map(tx => (
-            <div key={tx.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors text-xs">
-              <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-xl mt-0.5 ${tx.type === 'in' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                  {tx.type === 'in' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-slate-800">批次 {tx.batchCode}</span>
-                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${tx.type === 'in' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                      {tx.type === 'in' ? '入库' : '出库'} +{tx.qty} 支
-                    </span>
-                  </div>
-                  <p className="text-slate-500 mt-1">{tx.notes || '无业务说明'}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="py-16 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
-          <History className="w-8 h-8 text-slate-300" />
-          <p className="text-sm font-medium">暂无变动日志流水</p>
-        </div>
-      )}
-    </motion.div>
   );
 }
