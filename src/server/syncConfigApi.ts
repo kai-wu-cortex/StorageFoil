@@ -17,6 +17,7 @@ interface SyncConfigRepositoryForApi {
 }
 
 let repositoryForTests: SyncConfigRepositoryForApi | null = null;
+let listOperationLogsForTests: typeof listOperationLogs | null = null;
 
 const LOG_TYPES = new Set<OperationLogType>([
   'sync_received',
@@ -29,6 +30,10 @@ const LOG_TYPES = new Set<OperationLogType>([
 
 export function setSyncConfigRepositoryForTests(repository: SyncConfigRepositoryForApi | null): void {
   repositoryForTests = repository;
+}
+
+export function setSyncConfigOperationLogsForTests(listLogs: typeof listOperationLogs | null): void {
+  listOperationLogsForTests = listLogs;
 }
 
 function repository(): SyncConfigRepositoryForApi {
@@ -48,9 +53,10 @@ export async function syncConfigApiHandler(
   req: Pick<Request, 'method' | 'headers' | 'body' | 'query'>,
   res: Pick<Response, 'status' | 'json' | 'setHeader'>,
 ): Promise<void> {
+  const isOperationLogsView = req.method === 'GET' && req.query?.view === 'operation-logs';
   let user;
   try {
-    user = requireRole(req, getSessionSecret(), ['admin']);
+    user = requireRole(req, getSessionSecret(), isOperationLogsView ? ['admin', 'viewer'] : ['admin']);
   } catch {
     sendJson(res, 403, createApiFailure('FORBIDDEN', '当前账号无操作权限。', 'local'));
     return;
@@ -59,11 +65,11 @@ export async function syncConfigApiHandler(
   res.setHeader('Cache-Control', 'private, no-store');
   try {
     if (req.method === 'GET') {
-      if (req.query?.view === 'operation-logs') {
+      if (isOperationLogsView) {
         const rawType = typeof req.query.type === 'string' ? req.query.type : '';
         const type = LOG_TYPES.has(rawType as OperationLogType) ? rawType as OperationLogType : undefined;
         sendJson(res, 200, createApiSuccess({
-          logs: await listOperationLogs({
+          logs: await (listOperationLogsForTests || listOperationLogs)({
             limit: Number(typeof req.query.limit === 'string' ? req.query.limit : '') || 100,
             type,
             sourceId: typeof req.query.sourceId === 'string' ? req.query.sourceId : undefined,
