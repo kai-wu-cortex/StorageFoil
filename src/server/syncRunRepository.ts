@@ -7,7 +7,7 @@ export interface SyncRunCollection {
   insertOne(doc: StorageFoilSyncRunDocument): Promise<{ acknowledged: boolean }>;
   updateOne(
     filter: { _id: string },
-    update: { $set: Partial<StorageFoilSyncRunDocument> },
+    update: { $set: Partial<StorageFoilSyncRunDocument>; $unset?: { errorSummary: string } },
   ): Promise<{ acknowledged: boolean }>;
 }
 
@@ -88,17 +88,26 @@ export async function finalizeSyncRun(
   input: { status: SyncRunStatus; sourceResults: SyncRunSourceResult[]; errorSummary?: string },
   now = new Date(),
 ): Promise<void> {
+  const update: {
+    $set: Partial<StorageFoilSyncRunDocument>;
+    $unset?: { errorSummary: string };
+  } = {
+    $set: {
+      status: input.status,
+      sourceResults: input.sourceResults,
+      totals: totals(input.sourceResults),
+      finishedAt: now,
+    },
+  };
+  if (input.errorSummary) {
+    update.$set.errorSummary = input.errorSummary;
+  } else {
+    update.$unset = { errorSummary: '' };
+  }
+
   await collection.updateOne(
     { _id: runId },
-    {
-      $set: {
-        status: input.status,
-        sourceResults: input.sourceResults,
-        totals: totals(input.sourceResults),
-        errorSummary: input.errorSummary,
-        finishedAt: now,
-      },
-    },
+    update,
   );
 }
 

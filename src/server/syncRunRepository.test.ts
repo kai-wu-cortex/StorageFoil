@@ -8,6 +8,7 @@ import {
 
 test('sync run repository replays idempotency key and finalizes counts', async () => {
   const docs = new Map<string, Record<string, unknown>>();
+  const updates: Array<{ $set: Record<string, unknown>; $unset?: Record<string, unknown> }> = [];
   const collection = {
     findOne: async (filter: Record<string, string>) => {
       if (filter.idempotencyKey) return [...docs.values()].find(doc => doc.idempotencyKey === filter.idempotencyKey) || null;
@@ -17,8 +18,11 @@ test('sync run repository replays idempotency key and finalizes counts', async (
       docs.set(String(doc._id), doc);
       return { acknowledged: true };
     },
-    updateOne: async (filter: Record<string, string>, update: { $set: Record<string, unknown> }) => {
-      docs.set(filter._id, { ...docs.get(filter._id), ...update.$set });
+    updateOne: async (filter: Record<string, string>, update: { $set: Record<string, unknown>; $unset?: Record<string, unknown> }) => {
+      updates.push(update);
+      const next = { ...docs.get(filter._id), ...update.$set };
+      if (update.$unset?.errorSummary) delete next.errorSummary;
+      docs.set(filter._id, next);
       return { acknowledged: true };
     },
   };
@@ -49,4 +53,6 @@ test('sync run repository replays idempotency key and finalizes counts', async (
     records: 2,
     failures: 0,
   });
+  assert.equal(Object.hasOwn(updates.at(-1)?.$set ?? {}, 'errorSummary'), false);
+  assert.deepEqual(updates.at(-1)?.$unset, { errorSummary: '' });
 });
