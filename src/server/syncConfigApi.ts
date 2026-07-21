@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express';
 import { createApiFailure, createApiSuccess } from '../shared/apiTypes.ts';
 import { getSessionSecret, requireRole, sendJson } from './sessionAuth.ts';
+import type { OperationLogType } from '../shared/syncTypes.ts';
+import { listOperationLogs } from './operationLogRepository.ts';
 import { resolveEncryptionKey } from './secretCrypto.ts';
 import {
   getPublicSyncConfig,
@@ -15,6 +17,15 @@ interface SyncConfigRepositoryForApi {
 }
 
 let repositoryForTests: SyncConfigRepositoryForApi | null = null;
+
+const LOG_TYPES = new Set<OperationLogType>([
+  'sync_received',
+  'sync_started',
+  'source_synced',
+  'inventory_activity',
+  'sync_published',
+  'sync_failed',
+]);
 
 export function setSyncConfigRepositoryForTests(repository: SyncConfigRepositoryForApi | null): void {
   repositoryForTests = repository;
@@ -34,7 +45,7 @@ function repository(): SyncConfigRepositoryForApi {
 }
 
 export async function syncConfigApiHandler(
-  req: Pick<Request, 'method' | 'headers' | 'body'>,
+  req: Pick<Request, 'method' | 'headers' | 'body' | 'query'>,
   res: Pick<Response, 'status' | 'json' | 'setHeader'>,
 ): Promise<void> {
   let user;
@@ -48,6 +59,20 @@ export async function syncConfigApiHandler(
   res.setHeader('Cache-Control', 'private, no-store');
   try {
     if (req.method === 'GET') {
+      if (req.query?.view === 'operation-logs') {
+        const rawType = typeof req.query.type === 'string' ? req.query.type : '';
+        const type = LOG_TYPES.has(rawType as OperationLogType) ? rawType as OperationLogType : undefined;
+        sendJson(res, 200, createApiSuccess({
+          logs: await listOperationLogs({
+            limit: Number(typeof req.query.limit === 'string' ? req.query.limit : '') || 100,
+            type,
+            sourceId: typeof req.query.sourceId === 'string' ? req.query.sourceId : undefined,
+            month: typeof req.query.month === 'string' ? req.query.month : undefined,
+            syncRunId: typeof req.query.syncRunId === 'string' ? req.query.syncRunId : undefined,
+          }),
+        }));
+        return;
+      }
       sendJson(res, 200, createApiSuccess(await repository().get()));
       return;
     }
