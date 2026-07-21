@@ -45,7 +45,7 @@ test('HTTP sync requires shared secret and fileId', async () => {
   assert.match(JSON.stringify(missingFile.state.body), /fileId/);
 });
 
-test('HTTP sync records requested fileId and returns terminal run', async () => {
+test('HTTP sync records requested fileId and returns accepted run without waiting for sync completion', async () => {
   process.env.STORAGE_FOIL_HTTP_SYNC_SECRET = 'secret';
   let seenInput: { idempotencyKey: string; fileId: string } | null = null;
   setHttpSyncServiceForTests({
@@ -53,13 +53,13 @@ test('HTTP sync records requested fileId and returns terminal run', async () => 
       seenInput = input;
       return {
         id: 'run-http-1',
-        status: 'published',
+        status: 'queued',
         trigger: 'webhook',
         triggeredBy: `http:${input.fileId}`,
         requestedFileId: input.fileId,
         startedAt: '2026-07-21T00:00:00.000Z',
         sourceResults: [],
-        totals: { sources: 1, worksheets: 2, records: 490, failures: 0 },
+        totals: { sources: 0, worksheets: 0, records: 0, failures: 0 },
       };
     },
   });
@@ -76,4 +76,5 @@ test('HTTP sync records requested fileId and returns terminal run', async () => 
   assert.equal(accepted.state.statusCode, 202);
   assert.deepEqual(seenInput, { fileId: 'cq8B02TOSg9P', idempotencyKey: 'wps-cq8B02TOSg9P-1' });
   assert.match(JSON.stringify(accepted.state.body), /cq8B02TOSg9P/);
+  assert.match(JSON.stringify(accepted.state.body), /queued/);
 });

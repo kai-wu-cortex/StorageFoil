@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { waitUntil } from '@vercel/functions';
 import { createApiFailure, createApiSuccess } from '../shared/apiTypes.ts';
 import { COLLECTION_NAMES } from './collections.ts';
 import { getMongoCollection } from './mongodb.ts';
@@ -73,9 +74,19 @@ function service(): HttpSyncService {
         triggeredBy: `http:${input.fileId}`,
       });
       if (run.status !== 'published' && run.status !== 'failed') {
-        await executeHttpRun(run.id, config.revision, input.fileId);
+        const backgroundRun = executeHttpRun(run.id, config.revision, input.fileId).catch(error =>
+          writeOperationLog({
+            type: 'sync_failed',
+            level: 'error',
+            syncRunId: run.id,
+            fileId: input.fileId,
+            message: `同步后台任务异常：${publicSyncErrorMessage(error)}`,
+            triggeredBy: `http:${input.fileId}`,
+          }),
+        );
+        waitUntil(backgroundRun);
       }
-      return (await getSyncRun(runCollection, run.id)) ?? run;
+      return run;
     },
   };
 }
