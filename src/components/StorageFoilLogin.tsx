@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Database, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
+import { LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
+import PinteLogo from './PinteLogo';
 
 interface StorageFoilLoginProps {
   isConfigured: boolean;
@@ -28,9 +29,7 @@ export default function StorageFoilLogin({
         <section className="bg-[#111827] p-8 sm:p-10 flex flex-col justify-between gap-12">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center">
-                <Database className="h-5 w-5 text-emerald-300" />
-              </div>
+              <PinteLogo className="h-9 w-auto max-w-[86px]" variant="tile" />
               <div>
                 <h1 className="text-xl font-black tracking-tight">PINTE 品特</h1>
                 <p className="text-xs font-semibold text-slate-400 mt-0.5">StorageFoil 库存云平台</p>

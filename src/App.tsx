@@ -13,6 +13,7 @@ import StorageFoilLogin from './components/StorageFoilLogin';
 import DataFreshnessBadge from './components/DataFreshnessBadge';
 import AdminSyncConsole from './components/AdminSyncConsole';
 import OperationLogsPanel from './components/OperationLogsPanel';
+import PinteLogo from './components/PinteLogo';
 import { useAuthSession } from './hooks/useAuthSession';
 import { useInventoryData } from './hooks/useInventoryData';
 import { useLocalStorageState } from './hooks/useLocalStorageState';
@@ -20,7 +21,6 @@ import { matchesWarningFilter } from './lib/warningFilters';
 import type { AuthUser } from './shared/authTypes';
 import {
   Clock,
-  Database,
   Download,
   FileSpreadsheet,
   Grid,
@@ -215,9 +215,7 @@ function AuthenticatedStorageFoilApp({
         <div className="w-full px-4 sm:px-6 md:px-8">
           <div className="flex justify-between items-center h-13">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white shadow-md shadow-emerald-500/10 flex-shrink-0">
-                <Database className="w-4.5 h-4.5" />
-              </div>
+              <PinteLogo className="h-8 w-auto max-w-[74px]" variant="tile" />
               <div className="min-w-0">
                 <h1 className="text-xs sm:text-sm font-bold text-slate-900 font-display tracking-tight flex items-center gap-1.5 flex-wrap">
                   <span className="hidden sm:inline">品特烫金膜出入库管理与库存查询系统</span>
@@ -382,7 +380,7 @@ function AuthenticatedStorageFoilApp({
             <TabButton active={activeTab === 'timeline'} onClick={() => setActiveTab('timeline')} icon={<Clock className="w-3.5 h-3.5" />} label="时间尺度看板" />
             <TabButton active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} icon={<History className="w-3.5 h-3.5" />} label="操作日志" />
             {user.role === 'admin' && (
-              <TabButton active={activeTab === 'management'} onClick={() => setActiveTab('management')} icon={<Database className="w-3.5 h-3.5" />} label="同步后台" />
+              <TabButton active={activeTab === 'management'} onClick={() => setActiveTab('management')} icon={<Layers className="w-3.5 h-3.5" />} label="同步后台" />
             )}
           </div>
         </div>
