@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { InventoryBatch } from '../types';
 import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import {
@@ -15,6 +15,7 @@ interface PreviousMonthBalanceViewProps {
   monthsList: string[];
   currentBatches: InventoryBatch[];
   batchesByMonth: Record<string, InventoryBatch[]>;
+  prefetchMonth?: (month: string) => Promise<void> | void;
 }
 
 export default function PreviousMonthBalanceView({
@@ -22,6 +23,7 @@ export default function PreviousMonthBalanceView({
   monthsList,
   currentBatches,
   batchesByMonth,
+  prefetchMonth,
 }: PreviousMonthBalanceViewProps) {
   // 1. Determine comparison month
   const [comparisonMonth, setComparisonMonth] = useLocalStorageState(
@@ -58,7 +60,39 @@ export default function PreviousMonthBalanceView({
     () => (comparisonMonth ? batchesByMonth[comparisonMonth] ?? [] : []),
     [batchesByMonth, comparisonMonth],
   );
-  const isLoading = false;
+  const hasLoadedComparisonMonth = comparisonMonth
+    ? Object.prototype.hasOwnProperty.call(batchesByMonth, comparisonMonth)
+    : false;
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!comparisonMonth || hasLoadedComparisonMonth || !prefetchMonth) {
+      setIsLoading(false);
+      setLoadError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+    setLoadError(null);
+    Promise.resolve(prefetchMonth(comparisonMonth))
+      .then(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      })
+      .catch(error => {
+        if (!cancelled) {
+          setIsLoading(false);
+          setLoadError(error instanceof Error ? error.message : '上月结余数据加载失败。');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [comparisonMonth, hasLoadedComparisonMonth, prefetchMonth]);
 
   // 3. Search and filtering states
   const [searchQuery, setSearchQuery] = useLocalStorageState(
@@ -345,6 +379,12 @@ export default function PreviousMonthBalanceView({
                     <tr>
                       <td colSpan={8} className="py-12 text-center text-slate-400 font-medium">
                         正在加载上月结余明细...
+                      </td>
+                    </tr>
+                  ) : loadError ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-rose-500 font-medium">
+                        {loadError}
                       </td>
                     </tr>
                   ) : filteredPrevBatches.length > 0 ? (

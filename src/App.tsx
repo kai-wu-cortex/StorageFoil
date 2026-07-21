@@ -470,6 +470,7 @@ function AuthenticatedStorageFoilApp({
               monthsList={monthsList}
               currentBatches={batches}
               batchesByMonth={inventory.batchesByMonth}
+              prefetchMonth={inventory.prefetchMonth}
             />
           )}
 

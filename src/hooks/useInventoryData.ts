@@ -84,6 +84,7 @@ export function createInventoryDataController(options: {
   let requestId = 0;
   const batchesByMonth = new Map<string, InventoryBatch[]>();
   const responsesByMonthAndSource = new Map<string, InventoryDataResponse>();
+  const prefetchesByMonthAndSource = new Map<string, Promise<void>>();
 
   const setState = (next: InventoryDataState) => {
     state = next;
@@ -101,6 +102,7 @@ export function createInventoryDataController(options: {
     responsesByMonthAndSource.set(cacheKey(month, sourceId), response);
     if (sourceId === 'all') {
       responsesByMonthAndSource.set(cacheKey(month, 'all'), response);
+      batchesByMonth.set(month, response.batches);
     }
   };
 
@@ -154,6 +156,24 @@ export function createInventoryDataController(options: {
       }
     },
 
+    async prefetchMonth(month: string, sourceId = 'all') {
+      if (responsesByMonthAndSource.has(cacheKey(month, sourceId))) return;
+      const key = cacheKey(month, sourceId);
+      const existing = prefetchesByMonthAndSource.get(key);
+      if (existing) return existing;
+
+      const prefetch = options.api.getInventory({ month, sourceId })
+        .then(response => {
+          cacheResponse(response, sourceId);
+          setState({ ...state });
+        })
+        .finally(() => {
+          prefetchesByMonthAndSource.delete(key);
+        });
+      prefetchesByMonthAndSource.set(key, prefetch);
+      return prefetch;
+    },
+
     async checkForUpdates() {
       if (state.status !== 'ready') return;
       try {
@@ -185,6 +205,7 @@ export function createInventoryDataController(options: {
       requestId += 1;
       batchesByMonth.clear();
       responsesByMonthAndSource.clear();
+      prefetchesByMonthAndSource.clear();
       setState(getInitialInventoryDataState());
     },
   };
@@ -214,6 +235,10 @@ export function useInventoryData(user: AuthUser | null, generation: string | nul
     (month: string, sourceId = 'all') => controllerRef.current?.loadMonth(month, sourceId),
     [],
   );
+  const prefetchMonth = useCallback(
+    (month: string, sourceId = 'all') => controllerRef.current?.prefetchMonth(month, sourceId),
+    [],
+  );
   const retry = useCallback(() => {
     if (state.currentMonth) {
       return controllerRef.current?.loadMonth(state.currentMonth);
@@ -240,5 +265,5 @@ export function useInventoryData(user: AuthUser | null, generation: string | nul
     [state.batches, state.currentMonth],
   );
 
-  return { ...state, batchesByMonth, loadMonth, retry, clear, checkForUpdates, dismissPendingUpdate };
+  return { ...state, batchesByMonth, loadMonth, prefetchMonth, retry, clear, checkForUpdates, dismissPendingUpdate };
 }

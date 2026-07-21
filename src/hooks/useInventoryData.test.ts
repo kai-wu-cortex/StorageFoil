@@ -161,6 +161,51 @@ test('month switch renders cached month immediately while refreshing in backgrou
   assert.equal(getInventoryCalls, 3);
 });
 
+test('prefetchMonth caches comparison data without changing the current month', async () => {
+  const controller = createInventoryDataController({
+    api: {
+      bootstrap: async () => bootstrap('2026-07'),
+      getInventory: async ({ month }) => bootstrap(month),
+    },
+    storage: {
+      getItem: () => null,
+      setItem: () => undefined,
+    },
+  });
+
+  await controller.bootstrapForUser(viewer, 'login-1');
+  await controller.prefetchMonth('2026-06');
+
+  assert.equal(controller.getState().currentMonth, '2026-07');
+  assert.equal(controller.getState().batches[0].id, '2026-07-batch');
+  assert.equal(controller.getBatchesByMonth()['2026-06'][0].id, '2026-06-batch');
+});
+
+test('prefetchMonth deduplicates concurrent reads for the same comparison month', async () => {
+  let calls = 0;
+  const controller = createInventoryDataController({
+    api: {
+      bootstrap: async () => bootstrap('2026-07'),
+      getInventory: async ({ month }) => {
+        calls += 1;
+        return bootstrap(month);
+      },
+    },
+    storage: {
+      getItem: () => null,
+      setItem: () => undefined,
+    },
+  });
+
+  await controller.bootstrapForUser(viewer, 'login-1');
+  await Promise.all([
+    controller.prefetchMonth('2026-06'),
+    controller.prefetchMonth('2026-06'),
+  ]);
+
+  assert.equal(calls, 1);
+});
+
 test('failed month load keeps last successful data visible with an error', async () => {
   const controller = createInventoryDataController({
     api: {
