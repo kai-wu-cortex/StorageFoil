@@ -118,6 +118,49 @@ test('month switch calls inventory API and stale responses cannot overwrite newe
   assert.equal(controller.getState().batches[0].id, '2026-07-batch');
 });
 
+test('month switch renders cached month immediately while refreshing in background', async () => {
+  let getInventoryCalls = 0;
+  let resolveJuneRefresh: ((value: ReturnType<typeof bootstrap>) => void) | null = null;
+  const states: ReturnType<typeof getInitialInventoryDataState>[] = [];
+  const controller = createInventoryDataController({
+    api: {
+      bootstrap: async () => bootstrap('2026-07'),
+      getInventory: async ({ month }) => {
+        getInventoryCalls += 1;
+        if (month === '2026-06' && getInventoryCalls === 3) {
+          return new Promise(resolve => {
+            resolveJuneRefresh = resolve;
+          });
+        }
+        return bootstrap(month);
+      },
+    },
+    storage: {
+      getItem: () => null,
+      setItem: () => undefined,
+    },
+    onStateChange: state => states.push(state),
+  });
+
+  await controller.bootstrapForUser(viewer, 'login-1');
+  await controller.loadMonth('2026-06');
+  assert.equal(controller.getState().currentMonth, '2026-06');
+  assert.equal(controller.getState().batches[0].id, '2026-06-batch');
+
+  await controller.loadMonth('2026-07');
+  assert.equal(controller.getState().currentMonth, '2026-07');
+  const refreshPromise = controller.loadMonth('2026-06');
+
+  assert.equal(controller.getState().status, 'ready');
+  assert.equal(controller.getState().currentMonth, '2026-06');
+  assert.equal(controller.getState().batches[0].id, '2026-06-batch');
+  assert.notEqual(states.at(-1)?.status, 'loading');
+
+  resolveJuneRefresh?.(bootstrap('2026-06'));
+  await refreshPromise;
+  assert.equal(getInventoryCalls, 3);
+});
+
 test('failed month load keeps last successful data visible with an error', async () => {
   const controller = createInventoryDataController({
     api: {

@@ -83,6 +83,7 @@ export function createInventoryDataController(options: {
   let loginGeneration: string | null = null;
   let requestId = 0;
   const batchesByMonth = new Map<string, InventoryBatch[]>();
+  const responsesByMonthAndSource = new Map<string, InventoryDataResponse>();
 
   const setState = (next: InventoryDataState) => {
     state = next;
@@ -90,6 +91,17 @@ export function createInventoryDataController(options: {
       batchesByMonth.set(next.currentMonth, next.batches);
     }
     options.onStateChange?.(state);
+  };
+
+  const cacheKey = (month: string, sourceId = 'all') => `${month}\u001f${sourceId || 'all'}`;
+
+  const cacheResponse = (response: InventoryDataResponse, sourceId = 'all') => {
+    const month = response.month ?? response.defaultMonth;
+    if (!month) return;
+    responsesByMonthAndSource.set(cacheKey(month, sourceId), response);
+    if (sourceId === 'all') {
+      responsesByMonthAndSource.set(cacheKey(month, 'all'), response);
+    }
   };
 
   return {
@@ -103,6 +115,7 @@ export function createInventoryDataController(options: {
       setState({ ...state, status: 'loading', error: null });
       try {
         const response = await options.api.bootstrap();
+        cacheResponse(response, 'all');
         const next = applyResponse(state, response);
         const validPreferredMonth =
           preferredMonth && next.months.includes(preferredMonth) ? preferredMonth : next.currentMonth;
@@ -118,10 +131,17 @@ export function createInventoryDataController(options: {
 
     async loadMonth(month: string, sourceId = 'all') {
       const currentRequestId = ++requestId;
-      setState({ ...state, status: 'loading', error: null });
+      const cached = responsesByMonthAndSource.get(cacheKey(month, sourceId));
+      if (cached) {
+        options.storage.setItem(CURRENT_MONTH_PREF_KEY, month);
+        setState(applyResponse(state, cached));
+      } else {
+        setState({ ...state, status: 'loading', error: null });
+      }
       try {
         const response = await options.api.getInventory({ month, sourceId });
         if (currentRequestId !== requestId) return;
+        cacheResponse(response, sourceId);
         options.storage.setItem(CURRENT_MONTH_PREF_KEY, month);
         setState(applyResponse(state, response));
       } catch (error) {
@@ -164,6 +184,7 @@ export function createInventoryDataController(options: {
       loginGeneration = null;
       requestId += 1;
       batchesByMonth.clear();
+      responsesByMonthAndSource.clear();
       setState(getInitialInventoryDataState());
     },
   };

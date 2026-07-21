@@ -175,7 +175,7 @@ function AuthenticatedStorageFoilApp({
 
   const handleSwitchMonth = (targetMonth: string) => {
     if (targetMonth === currentMonth) return;
-    void inventory.loadMonth(targetMonth, selectedSourceId);
+    void inventory.loadMonth(targetMonth);
   };
 
   const handleRefreshPublishedData = () => {
@@ -184,7 +184,7 @@ function AuthenticatedStorageFoilApp({
         ? currentMonth
         : inventory.pendingUpdate?.defaultMonth || currentMonth;
     if (targetMonth) {
-      void inventory.loadMonth(targetMonth, selectedSourceId);
+      void inventory.loadMonth(targetMonth);
     } else {
       void inventory.retry();
     }
@@ -487,7 +487,7 @@ function AuthenticatedStorageFoilApp({
                 user={user}
                 currentMonth={currentMonth}
                 onRefreshCurrentMonth={() =>
-                  currentMonth ? inventory.loadMonth(currentMonth, selectedSourceId) : inventory.retry()
+                  currentMonth ? inventory.loadMonth(currentMonth) : inventory.retry()
                 }
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6" id="backup-management-section">
