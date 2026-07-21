@@ -31,6 +31,13 @@ export class WpsHttpError extends Error {
   }
 }
 
+export class WpsNetworkError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WpsNetworkError';
+  }
+}
+
 function baseUrl(apiBase: string): string {
   return (apiBase || process.env.STORAGE_FOIL_WPS_API_BASE || 'https://openapi.wps.cn').replace(/\/$/, '');
 }
@@ -55,10 +62,17 @@ async function parseJson(response: Response): Promise<unknown> {
 
 async function wpsGet(context: WpsFetchContext, path: string): Promise<unknown> {
   const fetchImpl = context.fetchImpl || fetch;
-  const response = await fetchImpl(`${baseUrl(context.apiBase)}${path}`, {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${context.accessToken}` },
-  });
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl(context.apiBase)}${path}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${context.accessToken}` },
+    });
+  } catch (error) {
+    throw new WpsNetworkError(
+      sanitizeWpsMessage(error instanceof Error ? error.message : String(error), 'WPS network request failed'),
+    );
+  }
   const data = await parseJson(response);
   if (!response.ok) {
     const body = data as { msg?: string; message?: string };

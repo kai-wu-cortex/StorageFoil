@@ -34,6 +34,13 @@ export class WpsTokenRequestError extends Error {
   }
 }
 
+export class WpsTokenNetworkError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WpsTokenNetworkError';
+  }
+}
+
 let collectionResolver: (() => Promise<WpsCredentialsCollection>) | null = null;
 
 export function setWpsCredentialsCollectionForTests(resolver: (() => Promise<WpsCredentialsCollection>) | null): void {
@@ -50,11 +57,18 @@ async function requestToken(
   body: Record<string, string>,
   fetchImpl: typeof fetch,
 ): Promise<WpsTokenResponse> {
-  const response = await fetchImpl(`${credential.apiBase.replace(/\/$/, '')}/oauth2/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams(body),
-  });
+  let response: Response;
+  try {
+    response = await fetchImpl(`${credential.apiBase.replace(/\/$/, '')}/oauth2/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(body),
+    });
+  } catch (error) {
+    throw new WpsTokenNetworkError(
+      sanitizeWpsMessage(error instanceof Error ? error.message : String(error), 'WPS token network request failed'),
+    );
+  }
   const data = (await response.json()) as WpsTokenResponse & { msg?: string; message?: string };
   if (!response.ok || !data.access_token) {
     throw new WpsTokenRequestError(sanitizeWpsMessage(data.msg || data.message || response.statusText));

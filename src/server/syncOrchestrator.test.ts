@@ -88,4 +88,27 @@ test('orchestrator does not publish a month when a source fails', async () => {
 
   assert.equal(result.status, 'failed');
   assert.deepEqual(published, []);
+  assert.ok((result.errorSummary || '').includes('pl/7: SOURCE_FAILED: WPS failed'));
+});
+
+test('orchestrator reports token refresh failures before reading sources', async () => {
+  const result = await runWpsFullSync({
+    runId: 'run-token-failed',
+    logger: silentLogger,
+    trigger: 'webhook',
+    triggeredBy: 'http:file-1',
+    configRevision: 'rev-1',
+    getAccessToken: async () => {
+      throw new Error('fetch failed');
+    },
+    getConfig: async () => ({
+      credentials: { apiBase: 'https://openapi.wps.cn', appId: 'app', redirectUri: '', hasAppKey: true, hasRefreshToken: true, updatedAt: '', updatedBy: '' },
+      revision: 'rev-1',
+      sources: [],
+    }),
+  });
+
+  assert.equal(result.status, 'failed');
+  assert.equal(result.sourceResults.length, 0);
+  assert.match(result.errorSummary || '', /WPS_TOKEN_FAILED: fetch failed/);
 });

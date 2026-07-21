@@ -3,6 +3,7 @@ import test from 'node:test';
 import { DEFAULT_WPS_FIELD_CONFIG } from '../data/wpsFieldConfig.ts';
 import {
   WpsHttpError,
+  WpsNetworkError,
   fetchWpsRangeData,
   fetchWpsWorksheets,
 } from './wpsClient.ts';
@@ -25,6 +26,20 @@ test('WPS client calls known sheet endpoints directly and parses data', async ()
 
   assert.deepEqual(sheets, [{ sheet_id: 1, name: '1月' }]);
   assert.equal(calls[0], 'GET https://openapi.wps.cn/v7/sheets/file-1/worksheets');
+});
+
+test('WPS client wraps network failures with a typed sanitized error', async () => {
+  const fetchImpl = async () => {
+    throw new Error('fetch failed client_secret=top-secret');
+  };
+
+  await assert.rejects(
+    () => fetchWpsWorksheets({ apiBase: 'https://openapi.wps.cn', accessToken: 'access-token', fetchImpl }, 'file-1'),
+    (error: unknown) =>
+      error instanceof WpsNetworkError &&
+      error.message.includes('fetch failed') &&
+      !error.message.includes('top-secret'),
+  );
 });
 
 test('WPS client sanitizes upstream errors and never exposes client_secret', async () => {

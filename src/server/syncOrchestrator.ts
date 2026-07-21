@@ -36,6 +36,11 @@ function currentYear(): number {
   return Number(process.env.STORAGE_FOIL_SYNC_YEAR) || new Date().getFullYear();
 }
 
+function shortErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.slice(0, 300);
+}
+
 async function defaultPublisherCollections(): Promise<InventoryPublisherCollections> {
   return {
     inventoryBatches: await getMongoCollection(COLLECTION_NAMES.inventoryBatches),
@@ -46,7 +51,16 @@ async function defaultPublisherCollections(): Promise<InventoryPublisherCollecti
 export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promise<SyncOrchestratorResult> {
   const runStartedAt = Date.now();
   const config = await (deps.getConfig || getPublicSyncConfig)();
-  const token = await (deps.getAccessToken || getValidWpsAccessToken)();
+  let token: { accessToken: string; apiBase: string };
+  try {
+    token = await (deps.getAccessToken || getValidWpsAccessToken)();
+  } catch (error) {
+    return {
+      status: 'failed',
+      sourceResults: [],
+      errorSummary: `WPS_TOKEN_FAILED: ${shortErrorMessage(error)}`,
+    };
+  }
   const fetchWorksheetsImpl = deps.fetchWorksheets || ((input) => fetchWpsWorksheets(input, input.fileId));
   const fetchRangeDataImpl = deps.fetchRangeData || ((input) => fetchWpsRangeData(input, input));
   const stageImpl = deps.stageBatches || (async input => defaultStageInventoryBatches(await defaultPublisherCollections(), input));
@@ -66,9 +80,10 @@ export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promis
         source.worksheetIdEnd,
         currentYear(),
       );
-    } catch {
+    } catch (error) {
+      const errorMessage = shortErrorMessage(error);
       failedMonths.add('*');
-      results.push({ sourceId: source.id, worksheetId: 0, month: '', status: 'failed', recordCount: 0, errorCode: 'WORKSHEETS_FAILED' });
+      results.push({ sourceId: source.id, worksheetId: 0, month: '', status: 'failed', recordCount: 0, errorCode: `WORKSHEETS_FAILED: ${errorMessage}` });
       continue;
     }
 
@@ -109,7 +124,8 @@ export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promis
         const set = successfulMonths.get(worksheet.month) || new Set<string>();
         set.add(source.id);
         successfulMonths.set(worksheet.month, set);
-      } catch {
+      } catch (error) {
+        const errorMessage = shortErrorMessage(error);
         logSyncEvent(deps.logger, {
           syncRunId: deps.runId,
           sourceId: source.id,
@@ -117,10 +133,10 @@ export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promis
           month: worksheet.month,
           status: 'failed',
           durationMs: Date.now() - worksheetStartedAt,
-          errorCode: 'SOURCE_FAILED',
+          errorCode: `SOURCE_FAILED: ${errorMessage}`,
         });
         failedMonths.add(worksheet.month);
-        results.push({ sourceId: source.id, worksheetId: worksheet.worksheetId, month: worksheet.month, status: 'failed', recordCount: 0, errorCode: 'SOURCE_FAILED' });
+        results.push({ sourceId: source.id, worksheetId: worksheet.worksheetId, month: worksheet.month, status: 'failed', recordCount: 0, errorCode: `SOURCE_FAILED: ${errorMessage}` });
       }
     }
   }
@@ -143,6 +159,11 @@ export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promis
   return {
     status: hasFailure ? 'failed' : 'published',
     sourceResults: results,
-    errorSummary: hasFailure ? 'One or more WPS sources failed.' : undefined,
+    errorSummary: hasFailure
+      ? results
+          .filter(result => result.status === 'failed')
+          .map(result => `${result.sourceId}/${result.worksheetId || 'worksheets'}: ${result.errorCode || 'failed'}`)
+          .join('; ')
+      : undefined,
   };
 }
