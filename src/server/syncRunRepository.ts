@@ -14,6 +14,7 @@ export interface SyncRunCollection {
 export interface CreateSyncRunInput {
   trigger: SyncRunTrigger;
   triggeredBy: string;
+  requestedFileId?: string;
   idempotencyKey: string;
   configRevision: string;
 }
@@ -23,6 +24,7 @@ export interface PublicSyncRun {
   status: SyncRunStatus;
   trigger: SyncRunTrigger;
   triggeredBy: string;
+  requestedFileId?: string;
   startedAt: string;
   finishedAt?: string;
   sourceResults: SyncRunSourceResult[];
@@ -47,6 +49,7 @@ function publicRun(doc: Record<string, unknown> | StorageFoilSyncRunDocument | n
     status: doc.status as SyncRunStatus,
     trigger: doc.trigger as SyncRunTrigger,
     triggeredBy: String(doc.triggeredBy),
+    requestedFileId: typeof doc.requestedFileId === 'string' ? doc.requestedFileId : undefined,
     startedAt: doc.startedAt instanceof Date ? doc.startedAt.toISOString() : String(doc.startedAt),
     finishedAt: doc.finishedAt
       ? doc.finishedAt instanceof Date
@@ -77,6 +80,7 @@ export async function createOrReuseSyncRun(
     startedAt: now,
     sourceResults: [],
     totals: { sources: 0, worksheets: 0, records: 0, failures: 0 },
+    ...(input.requestedFileId ? { requestedFileId: input.requestedFileId } : {}),
   };
   await collection.insertOne(doc);
   return publicRun(doc)!;

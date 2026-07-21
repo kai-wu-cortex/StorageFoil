@@ -58,6 +58,7 @@ export interface StorageFoilSyncRunDocument extends Document {
   status: SyncRunStatus;
   trigger: SyncRunTrigger;
   triggeredBy: string;
+  requestedFileId?: string;
   idempotencyKey: string;
   configRevision: string;
   startedAt: Date;

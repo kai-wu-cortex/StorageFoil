@@ -28,14 +28,16 @@ test('sync run repository replays idempotency key and finalizes counts', async (
   };
 
   const first = await createOrReuseSyncRun(collection, {
-    trigger: 'admin',
-    triggeredBy: 'admin',
+    trigger: 'http',
+    triggeredBy: 'http:file-1',
+    requestedFileId: 'file-1',
     idempotencyKey: 'idem-1',
     configRevision: 'rev-1',
   });
   const second = await createOrReuseSyncRun(collection, {
-    trigger: 'admin',
-    triggeredBy: 'admin',
+    trigger: 'http',
+    triggeredBy: 'http:file-1',
+    requestedFileId: 'file-1',
     idempotencyKey: 'idem-1',
     configRevision: 'rev-1',
   });
@@ -46,6 +48,7 @@ test('sync run repository replays idempotency key and finalizes counts', async (
   });
 
   assert.equal(first.id, second.id);
+  assert.equal((await getSyncRun(collection, first.id))?.requestedFileId, 'file-1');
   assert.equal((await getSyncRun(collection, first.id))?.status, 'published');
   assert.deepEqual((await getSyncRun(collection, first.id))?.totals, {
     sources: 1,
