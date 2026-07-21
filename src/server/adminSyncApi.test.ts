@@ -71,3 +71,21 @@ test('admin sync status returns sanitized run status', async () => {
   assert.equal(status.state.statusCode, 200);
   assert.match(JSON.stringify(status.state.body), /published/);
 });
+
+test('admin sync returns actionable failure when WPS secrets need reauthorization', async () => {
+  process.env.STORAGE_FOIL_SESSION_SECRET = 'secret';
+  setAdminSyncServiceForTests({
+    createRun: async () => ({
+      id: 'run-reauth',
+      status: 'failed',
+      errorSummary: 'WPS 凭据无法解密，请重新保存 App Key 并重新授权 WPS。',
+    }),
+    getRun: async () => null,
+  });
+
+  const accepted = response();
+  await adminSyncRunApiHandler(request(admin, { idempotencyKey: 'idem-reauth' }), accepted.res as Response);
+
+  assert.equal(accepted.state.statusCode, 202);
+  assert.match(JSON.stringify(accepted.state.body), /重新保存 App Key/);
+});

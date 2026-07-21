@@ -45,6 +45,20 @@ function service(): AdminSyncService {
   };
 }
 
+function publicSyncErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (message === 'Unable to decrypt secret.' || message === 'Malformed encrypted secret.') {
+    return 'WPS 凭据无法解密，请重新保存 App Key 并重新授权 WPS。';
+  }
+  if (message === 'WPS authorization is required.') {
+    return 'WPS 尚未授权，请先点击“授权 WPS”。';
+  }
+  if (message === 'WPS credentials are not configured.') {
+    return 'WPS 凭据未配置，请先保存 App ID、App Key 和回调地址。';
+  }
+  return message || 'Sync failed.';
+}
+
 async function executeRun(runId: string, triggeredBy: string, configRevision: string): Promise<void> {
   const runCollection = (await getMongoCollection(COLLECTION_NAMES.syncRuns)) as unknown as SyncRunCollection;
   const lockCollection = (await getMongoCollection(COLLECTION_NAMES.syncLocks)) as unknown as SyncLockCollection;
@@ -68,7 +82,7 @@ async function executeRun(runId: string, triggeredBy: string, configRevision: st
     await finalizeSyncRun(runCollection, runId, {
       status: 'failed',
       sourceResults: [],
-      errorSummary: error instanceof Error ? error.message : 'Sync failed.',
+      errorSummary: publicSyncErrorMessage(error),
     });
   } finally {
     await releaseSyncLock(lockCollection, runId);

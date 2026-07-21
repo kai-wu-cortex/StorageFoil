@@ -113,6 +113,11 @@ export default function AdminSyncConsole({
                   <Metric label="记录" value={sync.run.totals.records} />
                 </div>
               )}
+              {sync.run.errorSummary && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                  失败原因：{sync.run.errorSummary}
+                </div>
+              )}
               <button type="button" onClick={() => void sync.pollRunStatus(sync.run!.id)} className={secondaryButtonClass}>
                 <RefreshCw className="h-3.5 w-3.5" /> 刷新运行状态
               </button>
