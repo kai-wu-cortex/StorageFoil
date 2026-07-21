@@ -20,6 +20,7 @@ test('admin sync console renders sections for administrators without secrets', (
   assert.match(html, /全局 WPS 凭据/);
   assert.match(html, /数据源配置/);
   assert.match(html, /数据源别名/);
+  assert.match(html, /WPS 地址/);
   assert.match(html, /停用来源/);
   assert.match(html, /立即同步/);
   assert.doesNotMatch(html, /App Key 明文|refresh_token|access_token/);

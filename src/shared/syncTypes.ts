@@ -35,6 +35,7 @@ export interface WpsSyncSourceConfig {
   id: string;
   name: string;
   alias?: string;
+  address?: string;
   enabled: boolean;
   fileId: string;
   worksheetIdStart: number;
@@ -102,6 +103,7 @@ export interface InventoryBootstrapResponse {
     id: string;
     name: string;
     alias?: string;
+    address?: string;
     enabled: boolean;
   }>;
   latestPublishedAt: string | null;

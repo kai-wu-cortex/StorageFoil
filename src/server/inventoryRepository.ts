@@ -14,7 +14,7 @@ export interface PublishedInventoryResponse {
   defaultMonth?: string | null;
   month: string | null;
   batches: InventoryBatch[];
-  sources: Array<{ id: string; name: string; alias?: string; enabled: boolean }>;
+  sources: Array<{ id: string; name: string; alias?: string; address?: string; enabled: boolean }>;
   latestPublishedAt: string | null;
   syncRunId: string | null;
 }
@@ -92,6 +92,7 @@ function serializeSource(source: Partial<StorageFoilSyncSourceDocument>) {
     id: String(source._id ?? source.id),
     name: String(source.name ?? source._id ?? source.id),
     alias: source.alias ? String(source.alias) : '',
+    address: source.address ? String(source.address) : '',
     enabled: source.enabled !== false,
   };
 }

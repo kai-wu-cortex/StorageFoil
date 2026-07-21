@@ -29,6 +29,13 @@ export interface AdminSyncClient {
   getRun(runId: string): Promise<AdminSyncRunState>;
 }
 
+export interface NewSyncSourceDraft {
+  name: string;
+  alias?: string;
+  address?: string;
+  fileId?: string;
+}
+
 export interface AdminSyncState {
   status: 'idle' | 'loading' | 'ready' | 'error';
   config: AdminSyncConfig;
@@ -76,6 +83,19 @@ function nextSourceId(name: string): string {
   return slug ? `${slug}-${Date.now().toString(36)}` : `source-${Date.now().toString(36)}`;
 }
 
+export function deriveFileIdFromAddressOrValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  try {
+    const url = new URL(trimmed);
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    return pathParts[pathParts.length - 1] || trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
 export function createAdminSyncController(options: {
   api: AdminSyncClient;
   onStateChange?: (state: AdminSyncState) => void;
@@ -106,10 +126,13 @@ export function createAdminSyncController(options: {
       }
     },
 
-    addSource(name: string) {
-      const trimmed = name.trim();
+    addSource(input: string | NewSyncSourceDraft) {
+      const draft = typeof input === 'string' ? { name: input } : input;
+      const trimmed = draft.name.trim();
       if (!trimmed) return;
       const id = options.createSourceId?.(trimmed) || nextSourceId(trimmed);
+      const address = draft.address?.trim() || '';
+      const fileId = draft.fileId?.trim() || deriveFileIdFromAddressOrValue(address);
       patchConfig({
         ...state.config,
         sources: [
@@ -117,9 +140,10 @@ export function createAdminSyncController(options: {
           {
             id,
             name: trimmed,
-            alias: '',
+            alias: draft.alias?.trim() || '',
             enabled: true,
-            fileId: '',
+            address,
+            fileId,
             worksheetIdStart: 1,
             worksheetIdEnd: 12,
             rowFrom: 1,
@@ -239,7 +263,7 @@ export function useAdminSync(options: {
   return {
     ...state,
     load: useCallback(() => controllerRef.current?.load(), []),
-    addSource: useCallback((name: string) => controllerRef.current?.addSource(name), []),
+    addSource: useCallback((input: string | NewSyncSourceDraft) => controllerRef.current?.addSource(input), []),
     updateSource: useCallback((sourceId: string, values: Partial<WpsSyncSourceConfig>) => controllerRef.current?.updateSource(sourceId, values), []),
     removeSource: useCallback((sourceId: string) => controllerRef.current?.removeSource(sourceId), []),
     updateCredentials: useCallback((values: Partial<PublicWpsCredentials>) => controllerRef.current?.updateCredentials(values), []),

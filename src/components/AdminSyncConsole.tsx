@@ -18,6 +18,8 @@ export default function AdminSyncConsole({
   onRefreshCurrentMonth: () => Promise<void> | void;
 }) {
   const [newSourceName, setNewSourceName] = useState('');
+  const [newSourceAlias, setNewSourceAlias] = useState('');
+  const [newSourceAddress, setNewSourceAddress] = useState('');
   const [appKey, setAppKey] = useState('');
   const sync = useAdminSync({
     enabled: shouldRenderAdminSyncConsole(user),
@@ -29,8 +31,14 @@ export default function AdminSyncConsole({
   const { config } = sync;
 
   const addSource = () => {
-    sync.addSource(newSourceName);
+    sync.addSource({
+      name: newSourceName,
+      alias: newSourceAlias,
+      address: newSourceAddress,
+    });
     setNewSourceName('');
+    setNewSourceAlias('');
+    setNewSourceAddress('');
   };
 
   return (
@@ -127,9 +135,17 @@ export default function AdminSyncConsole({
               onRemove={() => sync.removeSource(source.id)}
             />
           ))}
-          <div className="flex gap-2 border-t border-slate-100 pt-3">
-            <input className={inputClass} value={newSourceName} onChange={event => setNewSourceName(event.target.value)} placeholder="新数据源名称，例如 PK" />
-            <button type="button" onClick={addSource} className={secondaryButtonClass}>
+          <div className="grid gap-2 border-t border-slate-100 pt-3 lg:grid-cols-[1fr_1fr_2fr_auto]">
+            <Field label="新数据源名称">
+              <input className={inputClass} value={newSourceName} onChange={event => setNewSourceName(event.target.value)} placeholder="例如 PK" />
+            </Field>
+            <Field label="数据源别名">
+              <input className={inputClass} value={newSourceAlias} onChange={event => setNewSourceAlias(event.target.value)} placeholder="例如 PK 入库明细" />
+            </Field>
+            <Field label="WPS 地址 / File ID">
+              <input className={inputClass} value={newSourceAddress} onChange={event => setNewSourceAddress(event.target.value)} placeholder="粘贴 WPS 地址，或直接输入 File ID" />
+            </Field>
+            <button type="button" onClick={addSource} className={`${secondaryButtonClass} self-end`}>
               <Plus className="h-3.5 w-3.5" /> 新增
             </button>
           </div>
@@ -162,6 +178,7 @@ function SourceCard({
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="数据源别名"><input className={inputClass} value={source.alias || ''} onChange={event => onChange({ alias: event.target.value })} placeholder="例如：PL 出入库主表" /></Field>
+        <Field label="WPS 地址"><input className={inputClass} value={source.address || ''} onChange={event => onChange({ address: event.target.value })} placeholder="原始 WPS 在线表格地址" /></Field>
         <Field label="File ID"><input className={inputClass} value={source.fileId} onChange={event => onChange({ fileId: event.target.value })} /></Field>
         <label className="flex items-center gap-2 pt-5 text-xs font-bold text-slate-600">
           <input type="checkbox" checked={source.enabled} onChange={event => onChange({ enabled: event.target.checked })} className="h-4 w-4 accent-emerald-600" />

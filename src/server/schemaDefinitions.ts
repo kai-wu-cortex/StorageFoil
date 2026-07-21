@@ -118,6 +118,7 @@ export const STORAGE_FOIL_COLLECTION_SCHEMAS: StorageFoilCollectionSchema[] = [
           _id: { bsonType: 'string' },
           name: { bsonType: 'string' },
           alias: { bsonType: 'string' },
+          address: { bsonType: 'string' },
           enabled: { bsonType: 'bool' },
           fileId: { bsonType: 'string' },
           worksheetIdStart: { bsonType: 'int', minimum: 1 },

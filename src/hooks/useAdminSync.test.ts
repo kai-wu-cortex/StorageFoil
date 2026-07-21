@@ -45,6 +45,8 @@ test('admin sync controller loads config edits arbitrary sources and handles sav
     updateSyncConfig: async body => {
       assert.equal(body.sources[1].name, 'PC粉箔');
       assert.equal(body.sources[1].alias, 'PC 粉箔出入库');
+      assert.equal(body.sources[1].address, 'https://kdocs.cn/l/cp-pc-file');
+      assert.equal(body.sources[1].fileId, 'cp-pc-file');
       throw new Error('配置已被更新，请刷新后重试。');
     },
     getAuthorizationUrl: async () => ({ url: 'https://openapi.wps.cn/oauth2/auth' }),
@@ -58,8 +60,12 @@ test('admin sync controller loads config edits arbitrary sources and handles sav
   });
 
   await controller.load();
-  controller.addSource('PC粉箔');
-  controller.updateSource('pc-powder', { alias: 'PC 粉箔出入库', fileId: 'file-pc', worksheetIdStart: 2, worksheetIdEnd: 8 });
+  controller.addSource({
+    name: 'PC粉箔',
+    alias: 'PC 粉箔出入库',
+    address: 'https://kdocs.cn/l/cp-pc-file',
+  });
+  controller.updateSource('pc-powder', { worksheetIdStart: 2, worksheetIdEnd: 8 });
   await controller.save();
 
   assert.equal(controller.getState().config.sources.length, 2);

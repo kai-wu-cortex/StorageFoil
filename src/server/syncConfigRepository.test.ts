@@ -63,6 +63,7 @@ function validInput(count = 2) {
       id: `source-${index + 1}`,
       name: `来源${index + 1}`,
       alias: index === 0 ? 'PL 主表' : '',
+      address: index === 0 ? 'https://kdocs.cn/l/pl-file' : '',
       enabled: true,
       fileId: `file-${index + 1}`,
       worksheetIdStart: index % 2 === 0 ? 12 : 1,
@@ -111,6 +112,7 @@ test('updates credentials with encrypted secrets and redacts public config', asy
   assert.equal(JSON.stringify(publicConfig).includes('new-app-key'), false);
   assert.equal(publicConfig.sources.length, 2);
   assert.equal(publicConfig.sources[0].alias, 'PL 主表');
+  assert.equal(publicConfig.sources[0].address, 'https://kdocs.cn/l/pl-file');
 });
 
 test('returns every saved sync source including disabled sources with aliases', async () => {
