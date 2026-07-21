@@ -111,7 +111,7 @@ export async function httpSyncApiHandler(
     return;
   }
 
-  const configuredSecret = process.env.STORAGE_FOIL_WEBHOOK_SECRET || '';
+  const configuredSecret = process.env.STORAGE_FOIL_HTTP_SYNC_SECRET || process.env.STORAGE_FOIL_WEBHOOK_SECRET || '';
   const receivedSecret = headerValue(req.headers as Record<string, unknown>, 'x-storagefoil-secret');
   if (!configuredSecret || receivedSecret !== configuredSecret) {
     sendJson(res, 401, createApiFailure('HTTP_SYNC_UNAUTHORIZED', 'HTTP 同步密钥校验失败。', 'local'));

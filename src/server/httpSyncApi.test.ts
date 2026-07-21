@@ -22,11 +22,12 @@ function request(body: unknown, headers: Record<string, string> = {}): Request {
 
 test.afterEach(() => {
   setHttpSyncServiceForTests(null);
+  delete process.env.STORAGE_FOIL_HTTP_SYNC_SECRET;
   delete process.env.STORAGE_FOIL_WEBHOOK_SECRET;
 });
 
 test('HTTP sync requires shared secret and fileId', async () => {
-  process.env.STORAGE_FOIL_WEBHOOK_SECRET = 'secret';
+  process.env.STORAGE_FOIL_HTTP_SYNC_SECRET = 'secret';
 
   const unauthorized = response();
   await httpSyncApiHandler(
@@ -45,7 +46,7 @@ test('HTTP sync requires shared secret and fileId', async () => {
 });
 
 test('HTTP sync records requested fileId and returns terminal run', async () => {
-  process.env.STORAGE_FOIL_WEBHOOK_SECRET = 'secret';
+  process.env.STORAGE_FOIL_HTTP_SYNC_SECRET = 'secret';
   let seenInput: { idempotencyKey: string; fileId: string } | null = null;
   setHttpSyncServiceForTests({
     createRun: async input => {
