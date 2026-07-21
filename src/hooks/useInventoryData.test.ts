@@ -1,0 +1,161 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  createInventoryDataController,
+  getInitialInventoryDataState,
+} from './useInventoryData';
+import type { AuthUser } from '../shared/authTypes';
+
+const viewer: AuthUser = {
+  id: 'viewer1',
+  username: 'viewer1',
+  displayName: 'Viewer 1',
+  role: 'viewer',
+};
+
+const admin: AuthUser = {
+  ...viewer,
+  id: 'admin',
+  username: 'admin',
+  displayName: 'Admin',
+  role: 'admin',
+};
+
+function bootstrap(month = '2026-07') {
+  return {
+    user: null,
+    months: ['2026-07', '2026-06'],
+    defaultMonth: month,
+    month,
+    batches: [
+      {
+        id: `${month}-batch`,
+        productModel: 'PL-001',
+        batchCode: 'B-001',
+        specification: '0.64*120M',
+        shelf: '19-3A',
+        totalStock: 7,
+        inflowQty: 10,
+        outflowQty: 3,
+        remarks: '',
+        dailyActivities: [],
+        createdAt: `${month}-01T00:00:00.000Z`,
+      },
+    ],
+    sources: [{ id: 'pl', name: 'PL', enabled: true }],
+    latestPublishedAt: '2026-07-20T00:00:00.000Z',
+    syncRunId: 'run-july',
+  };
+}
+
+test('starts empty before authenticated bootstrap', () => {
+  assert.deepEqual(getInitialInventoryDataState(), {
+    status: 'idle',
+    batches: [],
+    months: [],
+    currentMonth: null,
+    sources: [],
+    latestPublishedAt: null,
+    syncRunId: null,
+    error: null,
+  });
+});
+
+test('loads bootstrap once per login generation and does not read business localStorage', async () => {
+  let bootstrapCalls = 0;
+  const storageReads: string[] = [];
+  const controller = createInventoryDataController({
+    api: {
+      bootstrap: async () => {
+        bootstrapCalls += 1;
+        return bootstrap();
+      },
+      getInventory: async () => bootstrap('2026-06'),
+    },
+    storage: {
+      getItem: key => {
+        storageReads.push(key);
+        return key === 'storage_foil_pref_v1_current_month' ? '2026-07' : null;
+      },
+      setItem: () => undefined,
+    },
+  });
+
+  await controller.bootstrapForUser(viewer, 'login-1');
+  await controller.bootstrapForUser(admin, 'login-1');
+  await controller.bootstrapForUser(admin, 'login-2');
+
+  assert.equal(bootstrapCalls, 2);
+  assert.deepEqual(storageReads, ['storage_foil_pref_v1_current_month', 'storage_foil_pref_v1_current_month']);
+});
+
+test('month switch calls inventory API and stale responses cannot overwrite newer selection', async () => {
+  const resolvers = new Map<string, (value: ReturnType<typeof bootstrap>) => void>();
+  const controller = createInventoryDataController({
+    api: {
+      bootstrap: async () => bootstrap(),
+      getInventory: async ({ month }) =>
+        new Promise(resolve => {
+          resolvers.set(month, resolve);
+        }),
+    },
+    storage: {
+      getItem: () => null,
+      setItem: () => undefined,
+    },
+  });
+
+  await controller.bootstrapForUser(viewer, 'login-1');
+  const june = controller.loadMonth('2026-06');
+  const july = controller.loadMonth('2026-07');
+  resolvers.get('2026-07')?.(bootstrap('2026-07'));
+  await july;
+  resolvers.get('2026-06')?.(bootstrap('2026-06'));
+  await june;
+
+  assert.equal(controller.getState().currentMonth, '2026-07');
+  assert.equal(controller.getState().batches[0].id, '2026-07-batch');
+});
+
+test('failed month load keeps last successful data visible with an error', async () => {
+  const controller = createInventoryDataController({
+    api: {
+      bootstrap: async () => bootstrap('2026-07'),
+      getInventory: async () => {
+        throw new Error('月份读取失败');
+      },
+    },
+    storage: {
+      getItem: () => null,
+      setItem: () => undefined,
+    },
+  });
+
+  await controller.bootstrapForUser(viewer, 'login-1');
+  await controller.loadMonth('2026-06');
+
+  assert.equal(controller.getState().currentMonth, '2026-07');
+  assert.equal(controller.getState().batches[0].id, '2026-07-batch');
+  assert.equal(controller.getState().error, '月份读取失败');
+});
+
+test('clear removes inventory after logout and role does not change loaded data', async () => {
+  const controller = createInventoryDataController({
+    api: {
+      bootstrap: async () => bootstrap('2026-07'),
+      getInventory: async () => bootstrap('2026-06'),
+    },
+    storage: {
+      getItem: () => null,
+      setItem: () => undefined,
+    },
+  });
+
+  await controller.bootstrapForUser(viewer, 'viewer-login');
+  const viewerState = controller.getState();
+  await controller.bootstrapForUser(admin, 'admin-login');
+
+  assert.deepEqual(controller.getState().batches, viewerState.batches);
+  controller.clear();
+  assert.deepEqual(controller.getState(), getInitialInventoryDataState());
+});

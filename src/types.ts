@@ -6,6 +6,8 @@ export interface DailyActivity {
 
 export interface InventoryBatch {
   id: string;
+  sourceId?: string;
+  sourceName?: string;
   productModel: string; // 产品型号
   batchCode: string;    // 产品批次
   specification: string; // 规格
@@ -16,6 +18,17 @@ export interface InventoryBatch {
   remarks: string;       // 备注
   dailyActivities: DailyActivity[]; // 1号至5号(或更多)的出入库统计
   createdAt: string;
+}
+
+export interface WpsDataSource {
+  id: string;
+  name: string;
+  enabled: boolean;
+  fileId: string;
+  worksheetId: number;
+  worksheetIdByMonth: Record<string, number>;
+  worksheetIdStart: number;
+  worksheetIdEnd: number;
 }
 
 export interface TransactionHistory {
@@ -36,4 +49,39 @@ export interface ShelfDetail {
   row: string;     // "19"
   section: string; // "3"
   level: string;   // "A"
+}
+
+export interface WpsFieldConfig {
+  fieldId: keyof Pick<
+    InventoryBatch,
+    | 'productModel'
+    | 'batchCode'
+    | 'specification'
+    | 'shelf'
+    | 'totalStock'
+    | 'inflowQty'
+    | 'outflowQty'
+    | 'remarks'
+    | 'createdAt'
+  >;
+  displayName: string;
+  mappedColumn: string;
+  required?: boolean;
+}
+
+export interface WpsSyncConfig {
+  apiUrl: string;
+  appId: string;
+  appKey: string;
+  redirectUri: string;
+  fileId: string;
+  worksheetId: number;
+  worksheetIdByMonth: Record<string, number>;
+  rowFrom: number;
+  rowTo: number;
+  colFrom: number;
+  colTo: number;
+  code: string;
+  fieldConfig: WpsFieldConfig[];
+  sources: WpsDataSource[];
 }

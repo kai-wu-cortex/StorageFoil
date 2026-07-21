@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react';
 import { InventoryBatch } from '../types';
+import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import { 
   MapPin, 
   Ruler, 
@@ -25,8 +26,13 @@ interface InventoryCardsProps {
 
 export default function InventoryCards({ batches, searchQuery }: InventoryCardsProps) {
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
-  const [cols, setCols] = useState<'auto' | '2' | '3' | '4' | '5'>('auto');
-  const [density, setDensity] = useState<'compact' | 'standard' | 'spacious'>('standard');
+  const [cols, setCols] = useLocalStorageState<'auto' | '2' | '3' | '4' | '5'>(
+    'storage_foil_pref_v1_card_columns',
+    'auto',
+  );
+  const [density, setDensity] = useLocalStorageState<
+    'compact' | 'standard' | 'spacious'
+  >('storage_foil_pref_v1_card_density', 'standard');
   const [visibleLimit, setVisibleLimit] = useState<number>(24);
 
   // Reset pagination when batches change (e.g., filtering or changing sheets)

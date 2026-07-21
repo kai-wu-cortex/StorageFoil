@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { InventoryBatch } from '../types';
 import { motion } from 'motion/react';
 import { X, ArrowUpRight, ArrowDownRight, ShieldCheck, User, Calendar, BookOpen } from 'lucide-react';
+import { useLocalStorageState } from '../hooks/useLocalStorageState';
 
 interface TransactionModalProps {
   batch: InventoryBatch | null;
@@ -25,9 +26,18 @@ export default function TransactionModal({
 }: TransactionModalProps) {
   if (!batch || !type) return null;
 
-  const [qty, setQty] = useState<number>(1);
-  const [day, setDay] = useState<number>(1);
-  const [operator, setOperator] = useState<string>('仓库操作员');
+  const [qty, setQty] = useLocalStorageState<number>(
+    'storage_foil_pref_v1_transaction_quantity',
+    1,
+  );
+  const [day, setDay] = useLocalStorageState<number>(
+    'storage_foil_pref_v1_transaction_day',
+    1,
+  );
+  const [operator, setOperator] = useLocalStorageState(
+    'storage_foil_pref_v1_transaction_operator',
+    '仓库操作员',
+  );
   const [notes, setNotes] = useState<string>('');
   const [error, setError] = useState<string>('');
 
