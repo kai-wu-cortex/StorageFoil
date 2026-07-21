@@ -209,10 +209,43 @@ export default function TimeScaleView({ batches, transactions, currentMonth }: T
       .sort((a, b) => b.stock - a.stock);
   }, [historicalStateAtSelectedDay, selectedDay]);
 
-  // Filter transactions for the selected day
+  // Derive selected day transaction details from MongoDB-published daily activities.
   const transactionsAtDay = useMemo(() => {
+    const derivedTransactions = batches.flatMap((batch) => {
+      const activity = batch.dailyActivities.find((item) => item.day === selectedDay);
+      if (!activity || (!activity.inQty && !activity.outQty)) return [];
+      const base = {
+        batchId: batch.id,
+        batchCode: batch.batchCode,
+        productModel: batch.productModel,
+        day: selectedDay,
+        timestamp: `${currentMonth || `${yearStr}-${monthStr}`}-${String(selectedDay).padStart(2, '0')}`,
+        operator: batch.sourceName || batch.sourceId || 'WPS同步',
+        notes: batch.remarks,
+      };
+      const rows: TransactionHistory[] = [];
+      if (activity.inQty > 0) {
+        rows.push({
+          ...base,
+          id: `${batch.id}-${selectedDay}-in`,
+          type: 'in',
+          qty: activity.inQty,
+        });
+      }
+      if (activity.outQty > 0) {
+        rows.push({
+          ...base,
+          id: `${batch.id}-${selectedDay}-out`,
+          type: 'out',
+          qty: activity.outQty,
+        });
+      }
+      return rows;
+    });
+
+    if (derivedTransactions.length > 0) return derivedTransactions;
     return transactions.filter((t) => t.day === selectedDay);
-  }, [transactions, selectedDay]);
+  }, [batches, currentMonth, monthStr, selectedDay, transactions, yearStr]);
 
   // Generate SVG path coordinate points for the daily trend chart
   const chartCoordinates = useMemo(() => {
@@ -222,16 +255,17 @@ export default function TimeScaleView({ batches, transactions, currentMonth }: T
     const graphWidth = width - padding * 2;
     const graphHeight = height - padding * 2;
 
-    // Find max value for scaling
-    let maxValue = 10;
-    dailyFlows.forEach((f) => {
-      if (f.inflow > maxValue) maxValue = f.inflow;
-      if (f.outflow > maxValue) maxValue = f.outflow;
-    });
-    maxValue = Math.ceil(maxValue * 1.15); // 15% head room
+    const flowValues = dailyFlows.flatMap((f) => [f.inflow, f.outflow]).filter(value => value > 0).sort((a, b) => a - b);
+    const trueMaxValue = Math.max(10, flowValues[flowValues.length - 1] || 0);
+    const secondMaxValue = flowValues.length > 1 ? flowValues[flowValues.length - 2] : trueMaxValue;
+    const p90Value = flowValues.length > 0 ? flowValues[Math.floor((flowValues.length - 1) * 0.9)] : 10;
+    const hasOutlier = trueMaxValue > Math.max(100, p90Value * 4, secondMaxValue * 3);
+    const maxValue = hasOutlier
+      ? Math.ceil(Math.max(10, p90Value, secondMaxValue) * 1.25)
+      : Math.ceil(trueMaxValue * 1.15);
 
     const getX = (index: number) => padding + (index / 30) * graphWidth;
-    const getY = (value: number) => height - padding - (value / maxValue) * graphHeight;
+    const getY = (value: number) => height - padding - (Math.min(value, maxValue) / maxValue) * graphHeight;
 
     let inflowPoints = '';
     let outflowPoints = '';
@@ -266,12 +300,16 @@ export default function TimeScaleView({ batches, transactions, currentMonth }: T
         day: f.day,
         inflow: f.inflow,
         outflow: f.outflow,
+        inflowClipped: f.inflow > maxValue,
+        outflowClipped: f.outflow > maxValue,
       })),
       inflowLine: inflowPoints,
       outflowLine: outflowPoints,
       inflowArea,
       outflowArea,
       maxValue,
+      trueMaxValue,
+      hasOutlier,
       width,
       height,
       padding,
@@ -423,7 +461,9 @@ export default function TimeScaleView({ batches, transactions, currentMonth }: T
               当日出库
             </span>
             <span className="text-slate-400 font-mono hidden sm:inline">
-              上限: {chartCoordinates.maxValue}支
+              {chartCoordinates.hasOutlier
+                ? `显示上限: ${chartCoordinates.maxValue}支 / 实际峰值: ${chartCoordinates.trueMaxValue}支`
+                : `上限: ${chartCoordinates.maxValue}支`}
             </span>
           </div>
         </div>
@@ -570,6 +610,26 @@ export default function TimeScaleView({ batches, transactions, currentMonth }: T
                             strokeWidth="1"
                             className="cursor-pointer"
                           />
+                        )}
+                        {(pt.inflowClipped || pt.outflowClipped) && (
+                          <g>
+                            <circle
+                              cx={pt.x}
+                              cy={chartCoordinates.padding - 4}
+                              r="3.5"
+                              fill="#f59e0b"
+                              stroke="#ffffff"
+                              strokeWidth="1"
+                            />
+                            <text
+                              x={pt.x + 6}
+                              y={chartCoordinates.padding - 6}
+                              fill="#f59e0b"
+                              className="text-[9px] font-black"
+                            >
+                              峰值
+                            </text>
+                          </g>
                         )}
                       </>
                     )}
@@ -894,7 +954,7 @@ export default function TimeScaleView({ batches, transactions, currentMonth }: T
               </span>
             </div>
             <p className="text-[10px] text-slate-400">
-              第 {selectedDay} 日发生的所有出入库手工统计变动和结转记录
+              第 {selectedDay} 日发生的所有 WPS 同步出入库变动和结转记录
             </p>
           </div>
 
@@ -912,7 +972,7 @@ export default function TimeScaleView({ batches, transactions, currentMonth }: T
                         ? 'bg-emerald-100 text-emerald-800'
                         : 'bg-rose-100 text-rose-800'
                     }`}>
-                      {tx.type === 'in' ? '入库' : '出库'} +{tx.qty} 支
+                      {tx.type === 'in' ? `入库 +${tx.qty}` : `出库 -${tx.qty}`} 支
                     </span>
                   </div>
                   {tx.notes && <p className="text-[10px] text-slate-500 italic">{tx.notes}</p>}
