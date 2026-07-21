@@ -1,15 +1,17 @@
 interface PinteLogoProps {
   className?: string;
   variant?: 'plain' | 'tile';
+  shape?: 'horizontal' | 'square';
 }
 
 export default function PinteLogo({
   className = 'h-8 w-auto',
   variant = 'plain',
+  shape = 'horizontal',
 }: PinteLogoProps) {
   const image = (
     <img
-      src="/pinte-logo.png"
+      src={shape === 'square' ? '/pinte-logo-square.png' : '/pinte-logo.png'}
       alt="PINTE 品特"
       className={`${className} object-contain`}
       draggable={false}
@@ -18,7 +20,7 @@ export default function PinteLogo({
 
   if (variant === 'tile') {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
+      <div className="flex items-center justify-center">
         {image}
       </div>
     );
@@ -26,4 +28,3 @@ export default function PinteLogo({
 
   return image;
 }
-

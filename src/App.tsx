@@ -213,18 +213,18 @@ function AuthenticatedStorageFoilApp({
     <div className="min-h-screen bg-[#F8F9FB] text-slate-800 font-sans antialiased pb-12" id="app-root-container">
       <header className="bg-white border-b border-slate-100 sticky top-0 z-40 shadow-xs" id="app-header">
         <div className="w-full px-4 sm:px-6 md:px-8">
-          <div className="flex justify-between items-center h-13">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <PinteLogo className="h-8 w-auto max-w-[74px]" variant="tile" />
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-4 min-w-0">
+              <PinteLogo className="h-12 w-auto max-w-[82px]" variant="tile" shape="square" />
               <div className="min-w-0">
-                <h1 className="text-xs sm:text-sm font-bold text-slate-900 font-display tracking-tight flex items-center gap-1.5 flex-wrap">
+                <h1 className="text-sm sm:text-xl font-black text-slate-900 font-display tracking-tight flex items-center gap-2 flex-wrap">
                   <span className="hidden sm:inline">品特烫金膜出入库管理与库存查询系统</span>
                   <span className="inline sm:hidden">品特烫金膜出入库系统</span>
-                  <span className="text-[9px] bg-emerald-50 text-emerald-800 px-1 py-0.2 rounded border border-emerald-100 font-mono">
+                  <span className="text-[10px] bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded-md font-mono">
                     Cloud
                   </span>
                 </h1>
-                <p className="text-[8px] sm:text-[9px] text-slate-400 truncate max-w-[180px] sm:max-w-none">
+                <p className="text-[10px] sm:text-sm text-slate-400 truncate max-w-[180px] sm:max-w-none">
                   MongoDB 发布版本只读呈现
                 </p>
               </div>
