@@ -32,6 +32,12 @@ export interface InventoryDataState {
   sources: Array<{ id: string; name: string; enabled: boolean }>;
   latestPublishedAt: string | null;
   syncRunId: string | null;
+  pendingUpdate: {
+    syncRunId: string;
+    latestPublishedAt: string | null;
+    defaultMonth: string | null;
+    months: string[];
+  } | null;
   error: string | null;
 }
 
@@ -46,6 +52,7 @@ export function getInitialInventoryDataState(): InventoryDataState {
     sources: [],
     latestPublishedAt: null,
     syncRunId: null,
+    pendingUpdate: null,
     error: null,
   };
 }
@@ -62,6 +69,7 @@ function applyResponse(
     sources: response.sources,
     latestPublishedAt: response.latestPublishedAt,
     syncRunId: response.syncRunId,
+    pendingUpdate: null,
     error: null,
   };
 }
@@ -126,6 +134,32 @@ export function createInventoryDataController(options: {
       }
     },
 
+    async checkForUpdates() {
+      if (state.status !== 'ready') return;
+      try {
+        const response = await options.api.bootstrap();
+        if (response.syncRunId && response.syncRunId !== state.syncRunId) {
+          setState({
+            ...state,
+            months: response.months ?? state.months,
+            pendingUpdate: {
+              syncRunId: response.syncRunId,
+              latestPublishedAt: response.latestPublishedAt,
+              defaultMonth: response.defaultMonth ?? response.month,
+              months: response.months ?? state.months,
+            },
+            error: null,
+          });
+        }
+      } catch {
+        // Silent by design: update checks should not disrupt normal reading.
+      }
+    },
+
+    dismissPendingUpdate() {
+      setState({ ...state, pendingUpdate: null });
+    },
+
     clear() {
       loginGeneration = null;
       requestId += 1;
@@ -169,11 +203,21 @@ export function useInventoryData(user: AuthUser | null, generation: string | nul
     return undefined;
   }, [generation, state.currentMonth, user]);
   const clear = useCallback(() => controllerRef.current?.clear(), []);
+  const checkForUpdates = useCallback(() => controllerRef.current?.checkForUpdates(), []);
+  const dismissPendingUpdate = useCallback(() => controllerRef.current?.dismissPendingUpdate(), []);
+
+  useEffect(() => {
+    if (!user || !generation) return undefined;
+    const intervalId = window.setInterval(() => {
+      void controllerRef.current?.checkForUpdates();
+    }, 30_000);
+    return () => window.clearInterval(intervalId);
+  }, [generation, user]);
 
   const batchesByMonth = useMemo(
     () => controllerRef.current?.getBatchesByMonth() ?? {},
     [state.batches, state.currentMonth],
   );
 
-  return { ...state, batchesByMonth, loadMonth, retry, clear };
+  return { ...state, batchesByMonth, loadMonth, retry, clear, checkForUpdates, dismissPendingUpdate };
 }

@@ -57,6 +57,7 @@ test('starts empty before authenticated bootstrap', () => {
     sources: [],
     latestPublishedAt: null,
     syncRunId: null,
+    pendingUpdate: null,
     error: null,
   });
 });
@@ -158,4 +159,33 @@ test('clear removes inventory after logout and role does not change loaded data'
   assert.deepEqual(controller.getState().batches, viewerState.batches);
   controller.clear();
   assert.deepEqual(controller.getState(), getInitialInventoryDataState());
+});
+
+test('checkForUpdates records a pending refresh when a newer sync run is published', async () => {
+  let current = bootstrap('2026-07');
+  const controller = createInventoryDataController({
+    api: {
+      bootstrap: async () => current,
+      getInventory: async ({ month }) => ({ ...current, month, defaultMonth: month }),
+    },
+    storage: {
+      getItem: () => null,
+      setItem: () => undefined,
+    },
+  });
+
+  await controller.bootstrapForUser(viewer, 'login-1');
+  current = {
+    ...bootstrap('2026-07'),
+    syncRunId: 'run-new',
+    latestPublishedAt: '2026-07-21T05:08:53.714Z',
+  };
+  await controller.checkForUpdates();
+
+  assert.equal(controller.getState().syncRunId, 'run-july');
+  assert.equal(controller.getState().pendingUpdate?.syncRunId, 'run-new');
+
+  await controller.loadMonth('2026-07');
+  assert.equal(controller.getState().syncRunId, 'run-new');
+  assert.equal(controller.getState().pendingUpdate, null);
 });

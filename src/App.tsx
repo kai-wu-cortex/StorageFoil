@@ -178,6 +178,18 @@ function AuthenticatedStorageFoilApp({
     void inventory.loadMonth(targetMonth, selectedSourceId);
   };
 
+  const handleRefreshPublishedData = () => {
+    const targetMonth =
+      inventory.pendingUpdate?.months.includes(currentMonth)
+        ? currentMonth
+        : inventory.pendingUpdate?.defaultMonth || currentMonth;
+    if (targetMonth) {
+      void inventory.loadMonth(targetMonth, selectedSourceId);
+    } else {
+      void inventory.retry();
+    }
+  };
+
   const handleExportData = () => {
     const data = {
       exportedAt: new Date().toISOString(),
@@ -342,6 +354,36 @@ function AuthenticatedStorageFoilApp({
       </div>
 
       <main className="w-full px-4 sm:px-6 md:px-8 mt-4 space-y-4">
+        {inventory.pendingUpdate && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-900 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="font-bold">检测到 WPS 已发布新数据，是否立刻刷新？</div>
+              <div className="mt-1 text-[11px] text-amber-700">
+                新 RUN：{inventory.pendingUpdate.syncRunId.slice(0, 8)}
+                {inventory.pendingUpdate.latestPublishedAt
+                  ? ` · 发布于 ${new Date(inventory.pendingUpdate.latestPublishedAt).toLocaleString('zh-CN', { hour12: false })}`
+                  : ''}
+              </div>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={handleRefreshPublishedData}
+                className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
+              >
+                立即刷新数据
+              </button>
+              <button
+                type="button"
+                onClick={() => inventory.dismissPendingUpdate()}
+                className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-amber-800 transition hover:bg-amber-100"
+              >
+                稍后
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between border-b border-slate-200 pb-px" id="navigation-tabs-bar">
           <div className="flex space-x-1 overflow-x-auto scrollbar-none pb-px w-full">
             <TabButton active={activeTab === 'query'} onClick={() => setActiveTab('query')} icon={<Search className="w-3.5 h-3.5" />} label="库存智能查询" />
