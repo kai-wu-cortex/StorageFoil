@@ -97,9 +97,9 @@ function buildMatrix(rangeData: WpsRangeCell[]): { rowKeys: number[]; rows: stri
   return { rowKeys, rows: rowKeys.map(key => rowsByKey.get(key) || []) };
 }
 
-function extractTable(rangeData: WpsRangeCell[]): { headers: string[]; rows: string[][]; rowKeys: number[] } {
+function extractTable(rangeData: WpsRangeCell[]): { headers: string[]; rows: string[][]; rowKeys: number[]; title: string } {
   const matrix = buildMatrix(rangeData);
-  if (!matrix.rows.length) return { headers: [], rows: [], rowKeys: [] };
+  if (!matrix.rows.length) return { headers: [], rows: [], rowKeys: [], title: '' };
   const candidates = matrix.rows.slice(0, Math.min(10, matrix.rows.length));
   let headerIndex = 0;
   let bestScore = -1;
@@ -113,6 +113,11 @@ function extractTable(rangeData: WpsRangeCell[]): { headers: string[]; rows: str
 
   const primary = matrix.rows[headerIndex] || [];
   const secondary = matrix.rows[headerIndex + 1] || [];
+  const title = matrix.rows
+    .slice(0, headerIndex)
+    .flat()
+    .map(text)
+    .find(value => value.length > 0) || '';
   const secondaryMarkerCount = secondary.filter(value => /^(入|出)(库|数量)?$/u.test(text(value))).length;
   const hasSecondaryHeader = secondaryMarkerCount >= 2;
   let carriedParent = '';
@@ -130,6 +135,7 @@ function extractTable(rangeData: WpsRangeCell[]): { headers: string[]; rows: str
     headers,
     rows: matrix.rows.slice(dataStart),
     rowKeys: matrix.rowKeys.slice(dataStart),
+    title,
   };
 }
 
@@ -142,7 +148,21 @@ function findColumn(headers: string[], mappedColumn: string): number {
   const exact = headers.findIndex(header => header === mappedColumn);
   if (exact >= 0) return exact;
   const normalizedTarget = normalizeHeader(mappedColumn);
-  return headers.findIndex(header => normalizeHeader(header) === normalizedTarget);
+  const normalizedHeaders = headers.map(normalizeHeader);
+  const normalizedExact = normalizedHeaders.findIndex(header => header === normalizedTarget);
+  if (normalizedExact >= 0) return normalizedExact;
+  if (normalizedTarget === '产品型号') {
+    return normalizedHeaders.findIndex(header =>
+      ['型号', '产品名称', '品名', '品名型号', '产品名称型号'].includes(header) || header.endsWith('型号'),
+    );
+  }
+  return -1;
+}
+
+function productFamilyFromTitle(title: string): string {
+  const normalized = title.replace(/\s+/g, '').toUpperCase();
+  const match = normalized.match(/P[A-Z0-9\u4E00-\u9FA5]+?(?=出入库|入库|出库|统计表)/u);
+  return match?.[0] || '';
 }
 
 function dailyColumn(header: string): { day: number; type: 'in' | 'out' } | null {
@@ -216,7 +236,7 @@ function rowToBatch(
 
   return {
     id: stableWpsRecordKey(productModel, resolvedBatchCode, text(mapped.specification), text(mapped.shelf), sourceRow),
-    productModel: productModel || 'PL',
+    productModel,
     batchCode: resolvedBatchCode,
     specification: text(mapped.specification),
     shelf: text(mapped.shelf),
@@ -234,7 +254,7 @@ export function parseInventoryResponse(rawData: unknown, fieldConfig: WpsFieldCo
   const table = extractTable(apiResponse?.data?.range_data || []);
   const productModelField = fieldConfig.find(field => field.fieldId === 'productModel');
   const productModelColumn = productModelField ? findColumn(table.headers, productModelField.mappedColumn) : -1;
-  let inheritedProductModel = '';
+  let inheritedProductModel = productFamilyFromTitle(table.title);
   const batches = table.rows
     .map((row, index) => {
       const rowProductModel = productModelColumn >= 0 ? text(row[productModelColumn]) : '';

@@ -34,6 +34,24 @@ test('server parser converts WPS rows and keeps source row identity', () => {
   ]);
 });
 
+test('server parser does not default missing product models to PL', () => {
+  const pcRows = [
+    ['P C 出 入 库 统 计 表', '', '', '', '', '', '', ''],
+    ['型号缺失', '产品批次', '规格', '货架', '库存\n总数', '入库\n数量', '出库\n数量', '备注'],
+    ['', '220611-3', '0.64*120M', '5-2C', '20', '20', '0', '沙眼'],
+    ['', '220619-1-1', '0.64*120M', '5-3B', '4', '4', '0', '沙眼'],
+  ];
+  const result = parseInventoryResponse({
+    data: {
+      range_data: pcRows.flatMap((row, rowIndex) =>
+        row.map((cell, colIndex) => ({ row_from: rowIndex, col_from: colIndex, cell_text: cell })),
+      ),
+    },
+  }, DEFAULT_WPS_FIELD_CONFIG);
+
+  assert.deepEqual(result.batches.map(batch => batch.productModel), ['PC', 'PC']);
+});
+
 test('server worksheet selection uses configured range and month names first', () => {
   assert.deepEqual(
     selectInventoryWorksheets(
