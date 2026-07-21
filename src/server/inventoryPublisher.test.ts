@@ -56,6 +56,27 @@ test('publisher stages records under new syncRunId then switches publication poi
   assert.equal(publications.get('2026-07')?.syncRunId, 'run-new');
 });
 
+test('publisher falls back to source name when product model is missing', async () => {
+  const writes: unknown[] = [];
+  const collections = {
+    inventoryBatches: { bulkWrite: async ops => { writes.push(...ops); return { insertedCount: ops.length }; }, deleteMany: async () => ({ deletedCount: 0 }) },
+    inventoryPublications: { updateOne: async () => ({ acknowledged: true }), distinct: async () => [] },
+  };
+
+  await stageInventoryBatches(collections, {
+    syncRunId: 'run-new',
+    sourceId: 'pc',
+    sourceName: 'PC',
+    month: '2026-07',
+    worksheetId: 7,
+    worksheetName: '7月',
+    batches: [{ ...batch, productModel: '' }],
+  });
+
+  const replacement = (writes[0] as { replaceOne: { replacement: InventoryBatch } }).replaceOne.replacement;
+  assert.equal(replacement.productModel, 'PC');
+});
+
 test('cleanup preserves published syncRunIds', async () => {
   let deletedFilter: unknown;
   const collections = {

@@ -29,6 +29,7 @@ export async function stageInventoryBatches(
   if (!input.batches.length) return 0;
   const ops = input.batches.map((batch, index) => {
     const recordKey = batch.id || `${input.worksheetId}:${index}`;
+    const productModel = batch.productModel.trim() || input.sourceName;
     return {
       replaceOne: {
         filter: { _id: `${input.syncRunId}:${input.sourceId}:${recordKey}` },
@@ -38,6 +39,7 @@ export async function stageInventoryBatches(
           syncRunId: input.syncRunId,
           sourceId: input.sourceId,
           sourceName: input.sourceName,
+          productModel,
           month: input.month,
           recordKey,
           worksheetId: input.worksheetId,
