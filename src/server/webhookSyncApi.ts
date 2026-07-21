@@ -5,9 +5,10 @@ import { getMongoCollection } from './mongodb.ts';
 import { getPublicSyncConfig } from './syncConfigRepository.ts';
 import { acquireSyncLock, releaseSyncLock, type SyncLockCollection } from './syncLockRepository.ts';
 import { runWpsFullSync } from './syncOrchestrator.ts';
-import { createOrReuseSyncRun, finalizeSyncRun, type PublicSyncRun, type SyncRunCollection } from './syncRunRepository.ts';
+import { createOrReuseSyncRun, finalizeSyncRun, getSyncRun, type PublicSyncRun, type SyncRunCollection } from './syncRunRepository.ts';
 import { sendJson } from './sessionAuth.ts';
 import { verifyWebhookSignature } from './webhookAuth.ts';
+import { publicSyncErrorMessage } from './adminSyncApi.ts';
 
 interface WebhookSyncService {
   createRun(input: { idempotencyKey: string }): Promise<Pick<PublicSyncRun, 'id' | 'status'>>;
@@ -44,10 +45,10 @@ function service(): WebhookSyncService {
         idempotencyKey: input.idempotencyKey,
         configRevision: config.revision,
       });
-      void executeWebhookRun(run.id, config.revision).catch(error => {
-        console.error('StorageFoil webhook sync execution failed.', error);
-      });
-      return run;
+      if (run.status !== 'published' && run.status !== 'failed') {
+        await executeWebhookRun(run.id, config.revision);
+      }
+      return (await getSyncRun((await getMongoCollection(COLLECTION_NAMES.syncRuns)) as unknown as SyncRunCollection, run.id)) ?? run;
     },
   };
 }
@@ -75,7 +76,7 @@ async function executeWebhookRun(runId: string, configRevision: string): Promise
     await finalizeSyncRun(runCollection, runId, {
       status: 'failed',
       sourceResults: [],
-      errorSummary: error instanceof Error ? error.message : 'Sync failed.',
+      errorSummary: publicSyncErrorMessage(error),
     });
   } finally {
     await releaseSyncLock(lockCollection, runId);

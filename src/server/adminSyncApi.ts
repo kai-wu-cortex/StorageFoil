@@ -45,7 +45,7 @@ function service(): AdminSyncService {
   };
 }
 
-function publicSyncErrorMessage(error: unknown): string {
+export function publicSyncErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : '';
   if (message === 'Unable to decrypt secret.' || message === 'Malformed encrypted secret.') {
     return 'WPS 凭据无法解密，请重新保存 App Key 并重新授权 WPS。';
