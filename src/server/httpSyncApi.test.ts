@@ -53,7 +53,7 @@ test('HTTP sync records requested fileId and returns terminal run', async () => 
       return {
         id: 'run-http-1',
         status: 'published',
-        trigger: 'http',
+        trigger: 'webhook',
         triggeredBy: `http:${input.fileId}`,
         requestedFileId: input.fileId,
         startedAt: '2026-07-21T00:00:00.000Z',

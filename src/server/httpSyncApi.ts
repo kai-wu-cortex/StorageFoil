@@ -57,7 +57,7 @@ function service(): HttpSyncService {
       const config = await getPublicSyncConfig();
       const runCollection = (await getMongoCollection(COLLECTION_NAMES.syncRuns)) as unknown as SyncRunCollection;
       const run = await createOrReuseSyncRun(runCollection, {
-        trigger: 'http',
+        trigger: 'webhook',
         triggeredBy: `http:${input.fileId}`,
         requestedFileId: input.fileId,
         idempotencyKey: input.idempotencyKey,
@@ -85,7 +85,7 @@ async function executeHttpRun(runId: string, configRevision: string, fileId: str
   try {
     const result = await runWpsFullSync({
       runId,
-      trigger: 'http',
+      trigger: 'webhook',
       triggeredBy: `http:${fileId}`,
       configRevision,
     });

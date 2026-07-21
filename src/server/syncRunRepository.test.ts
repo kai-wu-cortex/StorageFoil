@@ -28,14 +28,14 @@ test('sync run repository replays idempotency key and finalizes counts', async (
   };
 
   const first = await createOrReuseSyncRun(collection, {
-    trigger: 'http',
+    trigger: 'webhook',
     triggeredBy: 'http:file-1',
     requestedFileId: 'file-1',
     idempotencyKey: 'idem-1',
     configRevision: 'rev-1',
   });
   const second = await createOrReuseSyncRun(collection, {
-    trigger: 'http',
+    trigger: 'webhook',
     triggeredBy: 'http:file-1',
     requestedFileId: 'file-1',
     idempotencyKey: 'idem-1',

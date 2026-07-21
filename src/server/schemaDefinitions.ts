@@ -145,7 +145,7 @@ export const STORAGE_FOIL_COLLECTION_SCHEMAS: StorageFoilCollectionSchema[] = [
         properties: {
           _id: { bsonType: 'string' },
           status: { enum: ['queued', 'running', 'validated', 'published', 'failed'] },
-          trigger: { enum: ['admin', 'webhook', 'http'] },
+          trigger: { enum: ['admin', 'webhook'] },
           triggeredBy: { bsonType: 'string' },
           requestedFileId: { bsonType: 'string' },
           idempotencyKey: { bsonType: 'string' },
