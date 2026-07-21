@@ -22,12 +22,12 @@ export interface WpsRangeRequest {
 }
 
 export class WpsHttpError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
     super(message);
     this.name = 'WpsHttpError';
+    this.status = status;
   }
 }
 

@@ -46,3 +46,20 @@ test('server runtime imports use explicit TypeScript extensions', () => {
 
   assert.deepEqual(missingExtensions, []);
 });
+
+test('server runtime TypeScript avoids syntax unsupported by Node strip-only loading', () => {
+  const unsupportedSyntax: string[] = [];
+  const parameterPropertyPattern = /constructor\s*\([^)]*\b(?:public|private|protected|readonly)\s+\w+/gs;
+
+  for (const root of SOURCE_ROOTS) {
+    for (const file of collectTypeScriptFiles(root)) {
+      const contents = readFileSync(file, 'utf8');
+
+      if (parameterPropertyPattern.test(contents)) {
+        unsupportedSyntax.push(`${file}: constructor parameter property`);
+      }
+    }
+  }
+
+  assert.deepEqual(unsupportedSyntax, []);
+});
