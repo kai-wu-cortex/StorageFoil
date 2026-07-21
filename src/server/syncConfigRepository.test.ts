@@ -62,6 +62,7 @@ function validInput(count = 2) {
     sources: Array.from({ length: count }, (_, index) => ({
       id: `source-${index + 1}`,
       name: `来源${index + 1}`,
+      alias: index === 0 ? 'PL 主表' : '',
       enabled: true,
       fileId: `file-${index + 1}`,
       worksheetIdStart: index % 2 === 0 ? 12 : 1,
@@ -109,6 +110,25 @@ test('updates credentials with encrypted secrets and redacts public config', asy
   assert.equal(publicConfig.credentials.hasAppKey, true);
   assert.equal(JSON.stringify(publicConfig).includes('new-app-key'), false);
   assert.equal(publicConfig.sources.length, 2);
+  assert.equal(publicConfig.sources[0].alias, 'PL 主表');
+});
+
+test('returns every saved sync source including disabled sources with aliases', async () => {
+  const coll = collections();
+  const key = resolveEncryptionKey(randomBytes(32).toString('base64'));
+  const input = validInput(3);
+  input.sources[1].alias = 'PC 粉箔别名';
+  input.sources[2].enabled = false;
+
+  const config = await updateSyncConfig(coll, input, {
+    encryptionKey: key,
+    updatedBy: 'admin',
+    expectedRevision: '',
+  });
+
+  assert.equal(config.sources.length, 3);
+  assert.equal(config.sources[1].alias, 'PC 粉箔别名');
+  assert.equal(config.sources[2].enabled, false);
 });
 
 test('preserves existing secrets and rejects stale revisions', async () => {

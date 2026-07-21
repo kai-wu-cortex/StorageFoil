@@ -22,6 +22,7 @@ const config = {
     {
       id: 'pl',
       name: 'PL',
+      alias: 'PL 出入库',
       enabled: true,
       fileId: 'file-pl',
       worksheetIdStart: 1,
@@ -43,6 +44,7 @@ test('admin sync controller loads config edits arbitrary sources and handles sav
     getSyncConfig: async () => config,
     updateSyncConfig: async body => {
       assert.equal(body.sources[1].name, 'PC粉箔');
+      assert.equal(body.sources[1].alias, 'PC 粉箔出入库');
       throw new Error('配置已被更新，请刷新后重试。');
     },
     getAuthorizationUrl: async () => ({ url: 'https://openapi.wps.cn/oauth2/auth' }),
@@ -57,12 +59,30 @@ test('admin sync controller loads config edits arbitrary sources and handles sav
 
   await controller.load();
   controller.addSource('PC粉箔');
-  controller.updateSource('pc-powder', { fileId: 'file-pc', worksheetIdStart: 2, worksheetIdEnd: 8 });
+  controller.updateSource('pc-powder', { alias: 'PC 粉箔出入库', fileId: 'file-pc', worksheetIdStart: 2, worksheetIdEnd: 8 });
   await controller.save();
 
   assert.equal(controller.getState().config.sources.length, 2);
   assert.match(controller.getState().error || '', /配置已被更新/);
   assert.ok(states.length >= 4);
+});
+
+test('admin sync controller keeps saved sources visible by disabling instead of removing', async () => {
+  const api: AdminSyncClient = {
+    getSyncConfig: async () => config,
+    updateSyncConfig: async body => body as typeof config,
+    getAuthorizationUrl: async () => ({ url: 'https://openapi.wps.cn/oauth2/auth' }),
+    triggerSync: async () => ({ id: 'run-1', status: 'queued' }),
+    getRun: async () => ({ id: 'run-1', status: 'published' }),
+  };
+  const controller = createAdminSyncController({ api });
+
+  await controller.load();
+  controller.removeSource('pl');
+
+  assert.equal(controller.getState().config.sources.length, 1);
+  assert.equal(controller.getState().config.sources[0].id, 'pl');
+  assert.equal(controller.getState().config.sources[0].enabled, false);
 });
 
 test('admin sync controller authorizes triggers once polls and refreshes only after published', async () => {

@@ -34,6 +34,7 @@ export interface PublicWpsCredentials {
 export interface WpsSyncSourceConfig {
   id: string;
   name: string;
+  alias?: string;
   enabled: boolean;
   fileId: string;
   worksheetIdStart: number;
@@ -100,6 +101,7 @@ export interface InventoryBootstrapResponse {
   sources: Array<{
     id: string;
     name: string;
+    alias?: string;
     enabled: boolean;
   }>;
   latestPublishedAt: string | null;

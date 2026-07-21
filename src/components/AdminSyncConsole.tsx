@@ -117,7 +117,7 @@ export default function AdminSyncConsole({
         </Panel>
       </div>
 
-      <Panel title="数据源配置" subtitle="数量不限；每个来源独立设置 File ID 和动态工作表 ID 范围。">
+      <Panel title="数据源配置" subtitle="显示所有已保存来源；可维护数据源别名、File ID、工作表范围，并可停用来源。">
         <div className="grid gap-3">
           {config.sources.map(source => (
             <SourceCard
@@ -155,11 +155,13 @@ function SourceCard({
     <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
         <input className={`${inputClass} font-bold`} value={source.name} onChange={event => onChange({ name: event.target.value })} aria-label={`${source.name} 名称`} />
-        <button type="button" onClick={onRemove} className="rounded-xl border border-rose-200 bg-white p-2 text-rose-600 hover:bg-rose-50" aria-label={`移除 ${source.name}`}>
+        <button type="button" onClick={onRemove} className="inline-flex items-center gap-1 rounded-xl border border-amber-200 bg-white px-2 py-2 text-xs font-bold text-amber-700 hover:bg-amber-50" aria-label={`停用 ${source.name}`}>
           <Trash2 className="h-4 w-4" />
+          停用来源
         </button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
+        <Field label="数据源别名"><input className={inputClass} value={source.alias || ''} onChange={event => onChange({ alias: event.target.value })} placeholder="例如：PL 出入库主表" /></Field>
         <Field label="File ID"><input className={inputClass} value={source.fileId} onChange={event => onChange({ fileId: event.target.value })} /></Field>
         <label className="flex items-center gap-2 pt-5 text-xs font-bold text-slate-600">
           <input type="checkbox" checked={source.enabled} onChange={event => onChange({ enabled: event.target.checked })} className="h-4 w-4 accent-emerald-600" />

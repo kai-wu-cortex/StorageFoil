@@ -117,6 +117,7 @@ export function createAdminSyncController(options: {
           {
             id,
             name: trimmed,
+            alias: '',
             enabled: true,
             fileId: '',
             worksheetIdStart: 1,
@@ -145,7 +146,9 @@ export function createAdminSyncController(options: {
     removeSource(sourceId: string) {
       patchConfig({
         ...state.config,
-        sources: state.config.sources.filter(source => source.id !== sourceId),
+        sources: state.config.sources.map(source =>
+          source.id === sourceId ? { ...source, enabled: false } : source,
+        ),
       });
     },
 

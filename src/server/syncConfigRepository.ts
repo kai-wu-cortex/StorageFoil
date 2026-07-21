@@ -63,6 +63,7 @@ export interface SyncConfigUpdateInput {
   sources: Array<{
     id: string;
     name: string;
+    alias?: string;
     enabled: boolean;
     fileId: string;
     worksheetIdStart: number;
@@ -111,6 +112,7 @@ function publicSource(doc: SyncSourceDocument): WpsSyncSourceConfig {
   return {
     id: doc._id,
     name: doc.name,
+    alias: doc.alias || '',
     enabled: doc.enabled,
     fileId: doc.fileId,
     worksheetIdStart: doc.worksheetIdStart,
@@ -147,6 +149,7 @@ export function validateSyncConfigInput(input: SyncConfigUpdateInput): SyncConfi
         ...source,
         id,
         name: source.name.trim() || id,
+        alias: source.alias?.trim() || '',
         fileId: source.fileId.trim(),
         ...range,
         rowFrom: Math.max(1, Number(source.rowFrom) || 1),
@@ -206,6 +209,7 @@ export async function updateSyncConfig(
       {
         $set: {
           name: source.name,
+          alias: source.alias,
           enabled: source.enabled,
           fileId: source.fileId,
           worksheetIdStart: source.worksheetIdStart,

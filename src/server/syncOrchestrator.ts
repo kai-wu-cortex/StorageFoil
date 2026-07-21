@@ -90,7 +90,7 @@ export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promis
         const count = await stageImpl({
           syncRunId: deps.runId,
           sourceId: source.id,
-          sourceName: source.name,
+          sourceName: source.alias || source.name,
           month: worksheet.month,
           worksheetId: worksheet.worksheetId,
           worksheetName: worksheet.name,
