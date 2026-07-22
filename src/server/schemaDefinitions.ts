@@ -2,6 +2,7 @@ import type { CreateIndexesOptions, Document, IndexSpecification } from 'mongodb
 import { COLLECTION_NAMES } from './collections.ts';
 
 export const STORAGE_FOIL_SCHEMA_VERSION = 1;
+export const OPERATION_LOG_RETENTION_SECONDS = 7 * 24 * 60 * 60;
 
 export interface StorageFoilIndexDefinition {
   key: IndexSpecification;
@@ -267,6 +268,13 @@ export const STORAGE_FOIL_COLLECTION_SCHEMAS: StorageFoilCollectionSchema[] = [
       },
     },
     indexes: [
+      {
+        key: { createdAt: 1 },
+        options: {
+          expireAfterSeconds: OPERATION_LOG_RETENTION_SECONDS,
+          name: 'createdAt_7d_ttl',
+        },
+      },
       { key: { createdAt: -1 }, options: { name: 'createdAt_desc' } },
       { key: { syncRunId: 1, createdAt: -1 }, options: { name: 'syncRun_createdAt' } },
       { key: { sourceId: 1, month: 1, createdAt: -1 }, options: { name: 'source_month_createdAt' } },

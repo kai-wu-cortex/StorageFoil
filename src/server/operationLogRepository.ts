@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { Collection, Filter } from 'mongodb';
+import type { Collection, CreateIndexesOptions, Filter, IndexSpecification } from 'mongodb';
 import type { OperationLogEntry, OperationLogLevel, OperationLogType } from '../shared/syncTypes.ts';
 import { COLLECTION_NAMES, type StorageFoilOperationLogDocument } from './collections.ts';
 import { getMongoCollection } from './mongodb.ts';
+import { OPERATION_LOG_RETENTION_SECONDS } from './schemaDefinitions.ts';
 
 export interface OperationLogInput {
   type: OperationLogType;
@@ -38,6 +39,7 @@ export interface OperationLogQuery {
 export interface OperationLogCollection {
   insertOne(doc: StorageFoilOperationLogDocument): Promise<unknown>;
   insertMany(docs: StorageFoilOperationLogDocument[], options?: { ordered?: boolean }): Promise<unknown>;
+  createIndex?(key: IndexSpecification, options?: CreateIndexesOptions): Promise<string>;
   find(filter: Filter<StorageFoilOperationLogDocument>): {
     sort(sort: Record<string, 1 | -1>): {
       limit(limit: number): {
@@ -49,6 +51,22 @@ export interface OperationLogCollection {
 
 async function defaultCollection(): Promise<OperationLogCollection> {
   return await getMongoCollection(COLLECTION_NAMES.operationLogs) as unknown as OperationLogCollection;
+}
+
+let retentionIndexPromise: Promise<void> | null = null;
+
+function ensureOperationLogRetentionIndex(collection: OperationLogCollection): Promise<void> {
+  if (!collection.createIndex) return Promise.resolve();
+  if (!retentionIndexPromise) {
+    retentionIndexPromise = collection.createIndex(
+      { createdAt: 1 },
+      {
+        expireAfterSeconds: OPERATION_LOG_RETENTION_SECONDS,
+        name: 'createdAt_7d_ttl',
+      },
+    ).then(() => undefined).catch(() => undefined);
+  }
+  return retentionIndexPromise;
 }
 
 function cleanString(value: string | undefined): string | undefined {
@@ -121,7 +139,9 @@ export async function writeOperationLog(
   collectionPromise: Promise<OperationLogCollection> = defaultCollection(),
 ): Promise<void> {
   try {
-    await (await collectionPromise).insertOne(toOperationLogDocument(input));
+    const collection = await collectionPromise;
+    void ensureOperationLogRetentionIndex(collection);
+    await collection.insertOne(toOperationLogDocument(input));
   } catch {
     // Operation logs must never make WPS sync fail.
   }
@@ -133,7 +153,9 @@ export async function writeOperationLogs(
 ): Promise<void> {
   if (!inputs.length) return;
   try {
-    await (await collectionPromise).insertMany(inputs.map(toOperationLogDocument), { ordered: false });
+    const collection = await collectionPromise;
+    void ensureOperationLogRetentionIndex(collection);
+    await collection.insertMany(inputs.map(toOperationLogDocument), { ordered: false });
   } catch {
     // Operation logs must never make WPS sync fail.
   }
@@ -149,6 +171,8 @@ export async function listOperationLogs(
   if (query.month) filter.month = query.month;
   if (query.syncRunId) filter.syncRunId = query.syncRunId;
   const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 500);
-  const docs = await (await collectionPromise).find(filter).sort({ createdAt: -1 }).limit(limit).toArray();
+  const collection = await collectionPromise;
+  void ensureOperationLogRetentionIndex(collection);
+  const docs = await collection.find(filter).sort({ createdAt: -1 }).limit(limit).toArray();
   return docs.map(serializeOperationLog);
 }
