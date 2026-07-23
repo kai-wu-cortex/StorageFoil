@@ -24,3 +24,15 @@ test('operation logs declare a seven day TTL index', () => {
     },
   );
 });
+
+test('sync sources allow the zero-based WPS product model column', () => {
+  const syncSourcesSchema = STORAGE_FOIL_COLLECTION_SCHEMAS.find(
+    schema => schema.name === COLLECTION_NAMES.syncSources,
+  );
+
+  assert.ok(syncSourcesSchema);
+  const validator = syncSourcesSchema.validator as {
+    $jsonSchema: { properties: { colFrom: { minimum: number } } };
+  };
+  assert.equal(validator.$jsonSchema.properties.colFrom.minimum, 0);
+});
