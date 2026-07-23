@@ -23,7 +23,17 @@ test('indexes equivalent shelf codes under one canonical map position', () => {
 
   assert.deepEqual(indexed.byShelf.get('19-3A')?.map(batch => batch.id), ['a', 'b']);
   assert.deepEqual(indexed.byShelf.get('板上')?.map(batch => batch.id), ['c']);
-  assert.deepEqual(indexed.unmapped.map(batch => batch.id), ['c']);
+  assert.deepEqual(indexed.unmapped.map(batch => batch.id), []);
+});
+
+test('treats all board-top labels as one mapped warehouse position', () => {
+  const indexed = indexBatchesByShelf([
+    { shelf: '板 上', id: 'a' },
+    { shelf: '板上', id: 'b' },
+  ]);
+
+  assert.deepEqual(indexed.byShelf.get('板上')?.map(batch => batch.id), ['a', 'b']);
+  assert.deepEqual(indexed.unmapped, []);
 });
 
 test('warehouse rack groups follow the supplied floor map order', () => {

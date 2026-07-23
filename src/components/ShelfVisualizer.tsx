@@ -103,6 +103,7 @@ export default function ShelfVisualizer({
       matchesFilter: !hasActiveFilter || cellBatches.some(batchMatchesFilters),
     };
   };
+  const boardState = getCellState('板上');
 
   const handleShelfClick = (shelfCode: string) => {
     onSelectShelf(selectedCode === shelfCode ? null : shelfCode);
@@ -148,7 +149,7 @@ export default function ShelfVisualizer({
         <div className="overflow-x-auto bg-slate-50/60 pb-2" data-testid="warehouse-map-scroll">
           <div className="min-w-max p-4">
             <div className="flex items-stretch gap-4">
-              {WAREHOUSE_RACK_GROUPS.map((group, groupIndex) => (
+              {WAREHOUSE_RACK_GROUPS.map(group => (
                 <div className="flex items-stretch gap-3" key={group.racks.join('-')}>
                   <div className="flex items-stretch gap-px">
                     {group.racks.map(rack => (
@@ -200,16 +201,26 @@ export default function ShelfVisualizer({
                   </div>
 
                   {group.obstacleAfter === 'pallets' && (
-                    <div className="flex gap-2" aria-label="卡板区">
-                      {['卡板2', '卡板1'].map(label => (
-                        <div
-                          key={`${groupIndex}-${label}`}
-                          className="flex w-12 items-center justify-center border border-slate-200 bg-slate-100 text-[10px] font-semibold text-slate-600 [writing-mode:vertical-rl]"
-                        >
-                          {label}
-                        </div>
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      id="warehouse-cell-板上"
+                      aria-label={`板上，${boardState.totalStock > 0 ? `${boardState.totalStock}支，${boardState.batches.length}批` : '空置'}`}
+                      onClick={() => handleShelfClick('板上')}
+                      className={`flex w-24 flex-col items-center justify-center border font-mono transition-colors ${
+                        selectedCode === '板上'
+                          ? 'border-emerald-800 bg-emerald-700 text-white'
+                          : boardState.totalStock > 0
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
+                            : 'border-slate-300 bg-[#dce5f4] text-slate-600 hover:bg-[#cfdaec]'
+                      } ${hasActiveFilter && !boardState.matchesFilter ? 'opacity-20' : ''}`}
+                    >
+                      <span className="text-xs font-bold">板上</span>
+                      <span className="mt-1 text-[9px]">
+                        {boardState.totalStock > 0
+                          ? `${boardState.totalStock}支 · ${boardState.batches.length}批`
+                          : '空置'}
+                      </span>
+                    </button>
                   )}
                 </div>
               ))}

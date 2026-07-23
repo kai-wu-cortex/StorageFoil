@@ -38,6 +38,8 @@ export function normalizeShelfCode(value: string): string {
 }
 
 export function isMappedShelfCode(code: string): boolean {
+  if (code === '板上') return true;
+
   const match = code.match(/^(\d{1,2})-(\d{1,2})([A-C])$/);
   if (!match) return false;
 
