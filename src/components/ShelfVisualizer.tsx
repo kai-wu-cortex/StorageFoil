@@ -152,7 +152,7 @@ export default function ShelfVisualizer({
                 <div className="flex items-stretch gap-3" key={group.racks.join('-')}>
                   <div className="flex items-stretch gap-px">
                     {group.racks.map(rack => (
-                      <div className="w-[84px]" key={rack} data-rack={rack}>
+                      <div className="w-20" key={rack} data-rack={rack}>
                         <div className="grid grid-cols-3 gap-px border border-slate-500 bg-slate-500">
                           {WAREHOUSE_BAYS.flatMap(bay => (
                             WAREHOUSE_LEVELS.map(level => {
