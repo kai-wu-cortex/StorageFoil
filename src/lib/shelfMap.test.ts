@@ -43,3 +43,10 @@ test('warehouse rack groups follow the supplied floor map order', () => {
     ],
   );
 });
+
+test('does not render a pallet area between rack 21 and rack 20', () => {
+  const rack21Group = WAREHOUSE_RACK_GROUPS.find(group => group.racks.includes(21));
+
+  assert.ok(rack21Group);
+  assert.equal(rack21Group.obstacleAfter, undefined);
+});

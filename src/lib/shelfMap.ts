@@ -4,7 +4,7 @@ export interface WarehouseRackGroup {
 }
 
 export const WAREHOUSE_RACK_GROUPS: WarehouseRackGroup[] = [
-  { racks: [22, 21], obstacleAfter: 'pallets' },
+  { racks: [22, 21] },
   { racks: [20, 19] },
   { racks: [18, 17] },
   { racks: [16, 15] },
