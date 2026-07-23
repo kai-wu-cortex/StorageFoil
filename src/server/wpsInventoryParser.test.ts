@@ -3,6 +3,7 @@ import test from 'node:test';
 import { DEFAULT_WPS_FIELD_CONFIG } from '../data/wpsFieldConfig.ts';
 import {
   parseInventoryResponse,
+  resolvePreviewWorksheet,
   selectInventoryWorksheets,
 } from './wpsInventoryParser.ts';
 
@@ -122,4 +123,24 @@ test('server worksheet selection uses configured range and month names first', (
       { worksheetId: 3, name: '7月', month: '2026-07' },
     ],
   );
+});
+
+test('preview resolves a missing requested sheet id to the latest available monthly worksheet', () => {
+  const worksheet = resolvePreviewWorksheet(
+    [
+      { sheet_id: 6, name: '6月' },
+      { sheet_id: 7, name: '7月' },
+      { sheet_id: 8, name: '空表格', empty: true },
+    ],
+    1,
+    1,
+    12,
+    2026,
+  );
+
+  assert.deepEqual(worksheet, {
+    worksheetId: 7,
+    name: '7月',
+    month: '2026-07',
+  });
 });

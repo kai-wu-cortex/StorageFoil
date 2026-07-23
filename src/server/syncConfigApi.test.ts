@@ -6,8 +6,10 @@ import { createSessionToken } from './sessionAuth.ts';
 import {
   setSyncConfigOperationLogsForTests,
   setSyncConfigRepositoryForTests,
+  setSyncConfigWpsPreviewForTests,
   syncConfigApiHandler,
 } from './syncConfigApi.ts';
+import { DEFAULT_WPS_FIELD_CONFIG } from '../data/wpsFieldConfig.ts';
 
 const admin: AuthUser = { id: 'admin', username: 'admin', displayName: 'Admin', role: 'admin' };
 const viewer = { ...admin, id: 'viewer', username: 'viewer', role: 'viewer' as const };
@@ -43,8 +45,73 @@ function request(user = admin, method = 'GET', body?: unknown, query: Record<str
 test.afterEach(() => {
   setSyncConfigOperationLogsForTests(null);
   setSyncConfigRepositoryForTests(null);
+  setSyncConfigWpsPreviewForTests(null);
   delete process.env.STORAGE_FOIL_SESSION_SECRET;
   delete process.env.STORAGE_FOIL_CONFIG_ENCRYPTION_KEY;
+});
+
+test('WPS preview falls back from a missing sheet id and reads zero-based product model column', async () => {
+  process.env.STORAGE_FOIL_SESSION_SECRET = 'secret';
+  setSyncConfigRepositoryForTests({
+    get: async () => ({
+      credentials: {
+        apiBase: 'https://openapi.wps.cn',
+        appId: 'app-id',
+        redirectUri: 'https://storage.example.com/callback',
+        hasAppKey: true,
+        hasRefreshToken: true,
+        updatedAt: '',
+        updatedBy: 'admin',
+      },
+      sources: [{
+        id: 'py',
+        name: 'PY',
+        alias: 'PY',
+        enabled: true,
+        fileId: 'file-py',
+        worksheetIdStart: 1,
+        worksheetIdEnd: 12,
+        rowFrom: 1,
+        rowTo: 300,
+        colFrom: 1,
+        colTo: 80,
+        fieldConfig: DEFAULT_WPS_FIELD_CONFIG,
+        updatedAt: '',
+        updatedBy: 'admin',
+      }],
+      revision: '',
+    }),
+    update: async () => {
+      throw new Error('not used');
+    },
+  });
+  let requestedWorksheetId = 0;
+  setSyncConfigWpsPreviewForTests({
+    getAccessToken: async () => ({ accessToken: 'token', apiBase: 'https://openapi.wps.cn' }),
+    fetchWorksheets: async () => [
+      { sheet_id: 6, name: '6月' },
+      { sheet_id: 7, name: '7月' },
+    ],
+    fetchRangeData: async (_token, request) => {
+      requestedWorksheetId = request.worksheetId;
+      return {
+        headers: ['产品型号', '产品批次'],
+        batches: [],
+        rawData: { data: { range_data: [{ row_from: 1, col_from: 0, cell_text: '产品型号' }] } },
+      };
+    },
+  });
+
+  const preview = response();
+  await syncConfigApiHandler(
+    request(admin, 'GET', undefined, { view: 'wps-preview', sourceId: 'py', worksheetId: '1' }),
+    preview.res as Response,
+  );
+
+  assert.equal(preview.state.statusCode, 200);
+  assert.equal(requestedWorksheetId, 7);
+  assert.equal((preview.state.body as { data: { worksheetId: number; request: { colFrom: number } } }).data.worksheetId, 7);
+  assert.equal((preview.state.body as { data: { request: { colFrom: number } } }).data.request.colFrom, 0);
 });
 
 test('sync config API is admin-only and rejects viewers', async () => {

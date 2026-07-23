@@ -63,6 +63,19 @@ export function selectInventoryWorksheets(
     .sort((a, b) => a.month.localeCompare(b.month));
 }
 
+export function resolvePreviewWorksheet(
+  sheets: WpsWorksheetInfo[],
+  requestedId: number,
+  startId: number,
+  endId: number,
+  year: number,
+): InventoryWorksheet | null {
+  const available = selectInventoryWorksheets(sheets, startId, endId, year);
+  return available.find(worksheet => worksheet.worksheetId === requestedId)
+    ?? available.at(-1)
+    ?? null;
+}
+
 function text(value: unknown): string {
   return value == null ? '' : String(value).trim();
 }

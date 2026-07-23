@@ -230,7 +230,7 @@ function SourceCard({
         <Field label="工作表结束 ID"><input className={inputClass} type="number" value={source.worksheetIdEnd} onChange={event => onChange({ worksheetIdEnd: Number(event.target.value) || 12 })} /></Field>
         <Field label="读取起始行"><input className={inputClass} type="number" value={source.rowFrom} onChange={event => onChange({ rowFrom: Number(event.target.value) || 1 })} /></Field>
         <Field label="读取结束行"><input className={inputClass} type="number" value={source.rowTo} onChange={event => onChange({ rowTo: Number(event.target.value) || 300 })} /></Field>
-        <Field label="读取起始列"><input className={`${inputClass} bg-slate-100 text-slate-400`} type="number" value={1} readOnly /></Field>
+        <Field label="读取起始列"><input className={`${inputClass} bg-slate-100 text-slate-400`} type="number" value={0} readOnly /></Field>
         <Field label="读取结束列"><input className={inputClass} type="number" value={source.colTo} onChange={event => onChange({ colTo: Number(event.target.value) || 80 })} /></Field>
       </div>
       <div className="mt-3 rounded-xl border border-white bg-white p-3">
@@ -261,7 +261,7 @@ function SourceCard({
           ))}
         </div>
       </div>
-      <div className="mt-2 text-[10px] font-semibold text-slate-400">工作表范围预览：{source.worksheetIdStart} → {source.worksheetIdEnd}；读取范围：行 {source.rowFrom} → {source.rowTo}，列 1 → {source.colTo}</div>
+      <div className="mt-2 text-[10px] font-semibold text-slate-400">工作表范围预览：{source.worksheetIdStart} → {source.worksheetIdEnd}；读取范围：行 {source.rowFrom} → {source.rowTo}，列 0 → {source.colTo}</div>
     </div>
   );
 }

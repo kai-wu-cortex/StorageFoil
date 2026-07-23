@@ -158,7 +158,7 @@ export function validateSyncConfigInput(input: SyncConfigUpdateInput): SyncConfi
         ...range,
         rowFrom: Math.max(1, Number(source.rowFrom) || 1),
         rowTo: Math.max(1, Number(source.rowTo) || 1),
-        colFrom: 1,
+        colFrom: 0,
         colTo: Math.max(1, Number(source.colTo) || 1),
         fieldConfig: source.fieldConfig?.length ? source.fieldConfig : DEFAULT_WPS_FIELD_CONFIG,
       };

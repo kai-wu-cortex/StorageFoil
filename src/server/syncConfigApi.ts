@@ -4,7 +4,8 @@ import { getSessionSecret, requireRole, sendJson } from './sessionAuth.ts';
 import type { OperationLogType } from '../shared/syncTypes.ts';
 import { listOperationLogs } from './operationLogRepository.ts';
 import { resolveEncryptionKey } from './secretCrypto.ts';
-import { fetchWpsRangeData } from './wpsClient.ts';
+import { fetchWpsRangeData, fetchWpsWorksheets } from './wpsClient.ts';
+import { resolvePreviewWorksheet } from './wpsInventoryParser.ts';
 import { getValidWpsAccessToken } from './wpsTokenService.ts';
 import {
   getPublicSyncConfig,
@@ -20,6 +21,12 @@ interface SyncConfigRepositoryForApi {
 
 let repositoryForTests: SyncConfigRepositoryForApi | null = null;
 let listOperationLogsForTests: typeof listOperationLogs | null = null;
+interface WpsPreviewServices {
+  getAccessToken: typeof getValidWpsAccessToken;
+  fetchWorksheets: typeof fetchWpsWorksheets;
+  fetchRangeData: typeof fetchWpsRangeData;
+}
+let wpsPreviewServicesForTests: WpsPreviewServices | null = null;
 
 const LOG_TYPES = new Set<OperationLogType>([
   'sync_received',
@@ -57,6 +64,10 @@ export function setSyncConfigRepositoryForTests(repository: SyncConfigRepository
 
 export function setSyncConfigOperationLogsForTests(listLogs: typeof listOperationLogs | null): void {
   listOperationLogsForTests = listLogs;
+}
+
+export function setSyncConfigWpsPreviewForTests(services: WpsPreviewServices | null): void {
+  wpsPreviewServicesForTests = services;
 }
 
 function repository(): SyncConfigRepositoryForApi {
@@ -111,9 +122,26 @@ export async function syncConfigApiHandler(
           sendJson(res, 404, createApiFailure('SOURCE_NOT_FOUND', '未找到该数据源。', 'local'));
           return;
         }
-        const worksheetId = queryNumber(req.query.worksheetId, source.worksheetIdStart);
-        const token = await getValidWpsAccessToken();
-        const preview = await fetchWpsRangeData(token, {
+        const requestedWorksheetId = queryNumber(req.query.worksheetId, source.worksheetIdStart);
+        const previewServices = wpsPreviewServicesForTests || {
+          getAccessToken: getValidWpsAccessToken,
+          fetchWorksheets: fetchWpsWorksheets,
+          fetchRangeData: fetchWpsRangeData,
+        };
+        const token = await previewServices.getAccessToken();
+        const worksheet = resolvePreviewWorksheet(
+          await previewServices.fetchWorksheets(token, source.fileId),
+          requestedWorksheetId,
+          source.worksheetIdStart,
+          source.worksheetIdEnd,
+          Number(process.env.STORAGE_FOIL_SYNC_YEAR) || new Date().getFullYear(),
+        );
+        if (!worksheet) {
+          sendJson(res, 404, createApiFailure('WORKSHEET_NOT_FOUND', '该来源没有可读取的月份工作表。', 'local'));
+          return;
+        }
+        const worksheetId = worksheet.worksheetId;
+        const preview = await previewServices.fetchRangeData(token, {
           fileId: source.fileId,
           worksheetId,
           rowFrom: source.rowFrom,
@@ -130,7 +158,7 @@ export async function syncConfigApiHandler(
             fileId: source.fileId,
             rowFrom: source.rowFrom,
             rowTo: source.rowTo,
-            colFrom: 1,
+            colFrom: 0,
             colTo: Math.max(source.colTo, 1),
           },
           fieldConfig: source.fieldConfig,

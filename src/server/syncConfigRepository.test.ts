@@ -91,7 +91,7 @@ test('validates unlimited dynamic sources with unique IDs file IDs and normalize
   assert.equal(parsed.sources.length, 25);
   assert.equal(parsed.sources[0].worksheetIdStart, 1);
   assert.equal(parsed.sources[0].worksheetIdEnd, 12);
-  assert.equal(parsed.sources[0].colFrom, 1);
+  assert.equal(parsed.sources[0].colFrom, 0);
 
   const duplicate = validInput();
   duplicate.sources[1].id = duplicate.sources[0].id;

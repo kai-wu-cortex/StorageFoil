@@ -97,7 +97,7 @@ export async function fetchWpsRangeData(
   request: WpsRangeRequest,
 ): Promise<WpsSyncResult> {
   if (!request.fileId) throw new Error('WPS File ID is required.');
-  const colFrom = 1;
+  const colFrom = 0;
   const colTo = Math.max(request.colTo, colFrom);
   const endpoint =
     `/v7/sheets/${encodeURIComponent(request.fileId)}` +

@@ -28,17 +28,17 @@ test('WPS client calls known sheet endpoints directly and parses data', async ()
   assert.equal(calls[0], 'GET https://openapi.wps.cn/v7/sheets/file-1/worksheets');
 });
 
-test('WPS range reads always include the first product model column', async () => {
+test('WPS range reads include zero-based column 0 where product models are stored', async () => {
   const calls: string[] = [];
   const fetchImpl = async (url: string | URL) => {
     calls.push(url.toString());
     return new Response(JSON.stringify({
       data: {
         range_data: [
-          { row_from: 1, col_from: 1, cell_text: '产品型号' },
-          { row_from: 1, col_from: 2, cell_text: '产品批次' },
-          { row_from: 2, col_from: 1, cell_text: 'PC-212D（103D）\n（金色）' },
-          { row_from: 2, col_from: 2, cell_text: '240223-03（111）' },
+          { row_from: 1, col_from: 0, cell_text: '产品型号' },
+          { row_from: 1, col_from: 1, cell_text: '产品批次' },
+          { row_from: 2, col_from: 0, cell_text: 'PC-212D（103D）\n（金色）' },
+          { row_from: 2, col_from: 1, cell_text: '240223-03（111）' },
         ],
       },
     }), {
@@ -60,7 +60,7 @@ test('WPS range reads always include the first product model column', async () =
     },
   );
 
-  assert.match(calls[0], /col_from=1/);
+  assert.match(calls[0], /col_from=0/);
   assert.equal(result.batches[0].productModel, 'PC-212D（103D）\n（金色）');
 });
 

@@ -165,7 +165,7 @@ export function createAdminSyncController(options: {
             worksheetIdEnd: 12,
             rowFrom: 1,
             rowTo: 300,
-            colFrom: 1,
+            colFrom: 0,
             colTo: 80,
             fieldConfig: DEFAULT_WPS_FIELD_CONFIG,
             updatedAt: '',
