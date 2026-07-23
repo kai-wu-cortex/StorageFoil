@@ -152,7 +152,7 @@ export default function ShelfVisualizer({
                 <div className="flex items-stretch gap-3" key={group.racks.join('-')}>
                   <div className="flex items-stretch gap-px">
                     {group.racks.map(rack => (
-                      <div className="w-[112px]" key={rack} data-rack={rack}>
+                      <div className="w-[84px]" key={rack} data-rack={rack}>
                         <div className="grid grid-cols-3 gap-px border border-slate-500 bg-slate-500">
                           {WAREHOUSE_BAYS.flatMap(bay => (
                             WAREHOUSE_LEVELS.map(level => {
@@ -174,18 +174,12 @@ export default function ShelfVisualizer({
                                   id={`warehouse-cell-${shelfCode}`}
                                   aria-label={`${shelfCode}，${occupied ? `${state.totalStock}支，${state.batches.length}批` : '空置'}`}
                                   onClick={() => handleShelfClick(shelfCode)}
-                                  className={`flex h-12 min-w-0 flex-col items-center justify-center px-1 font-mono transition-colors ${cellClass} ${
+                                  title={`${shelfCode} · ${occupied ? `${state.totalStock}支 / ${state.batches.length}批` : '空置'}`}
+                                  className={`flex h-12 min-w-0 items-center justify-center px-0.5 font-mono transition-colors ${cellClass} ${
                                     isMuted ? 'opacity-20' : ''
                                   }`}
                                 >
-                                  <span className="text-[9px] font-bold leading-none">{shelfCode}</span>
-                                  {occupied && (
-                                    <span className={`mt-1 text-[8px] leading-none ${
-                                      isSelected ? 'text-emerald-100' : 'text-emerald-700'
-                                    }`}>
-                                      {state.totalStock}支 · {state.batches.length}批
-                                    </span>
-                                  )}
+                                  <span className="text-[8px] font-bold leading-none">{shelfCode}</span>
                                 </button>
                               );
                             })
