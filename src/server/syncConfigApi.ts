@@ -4,6 +4,8 @@ import { getSessionSecret, requireRole, sendJson } from './sessionAuth.ts';
 import type { OperationLogType } from '../shared/syncTypes.ts';
 import { listOperationLogs } from './operationLogRepository.ts';
 import { resolveEncryptionKey } from './secretCrypto.ts';
+import { fetchWpsRangeData } from './wpsClient.ts';
+import { getValidWpsAccessToken } from './wpsTokenService.ts';
 import {
   getPublicSyncConfig,
   updateSyncConfig,
@@ -27,6 +29,27 @@ const LOG_TYPES = new Set<OperationLogType>([
   'sync_published',
   'sync_failed',
 ]);
+
+function queryString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function queryNumber(value: unknown, fallback: number): number {
+  const parsed = Number(queryString(value));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function rawRangeSample(rawData: unknown, limit = 80): unknown[] {
+  const response = rawData as { data?: { range_data?: unknown[] } };
+  return Array.isArray(response.data?.range_data)
+    ? response.data.range_data.slice(0, limit)
+    : [];
+}
+
+function rawRangeCellCount(rawData: unknown): number {
+  const response = rawData as { data?: { range_data?: unknown[] } };
+  return Array.isArray(response.data?.range_data) ? response.data.range_data.length : 0;
+}
 
 export function setSyncConfigRepositoryForTests(repository: SyncConfigRepositoryForApi | null): void {
   repositoryForTests = repository;
@@ -54,6 +77,7 @@ export async function syncConfigApiHandler(
   res: Pick<Response, 'status' | 'json' | 'setHeader'>,
 ): Promise<void> {
   const isOperationLogsView = req.method === 'GET' && req.query?.view === 'operation-logs';
+  const isWpsPreviewView = req.method === 'GET' && req.query?.view === 'wps-preview';
   let user;
   try {
     user = requireRole(req, getSessionSecret(), isOperationLogsView ? ['admin', 'viewer'] : ['admin']);
@@ -76,6 +100,47 @@ export async function syncConfigApiHandler(
             month: typeof req.query.month === 'string' ? req.query.month : undefined,
             syncRunId: typeof req.query.syncRunId === 'string' ? req.query.syncRunId : undefined,
           }),
+        }));
+        return;
+      }
+      if (isWpsPreviewView) {
+        const config = await repository().get();
+        const sourceId = queryString(req.query.sourceId);
+        const source = config.sources.find(item => item.id === sourceId);
+        if (!source) {
+          sendJson(res, 404, createApiFailure('SOURCE_NOT_FOUND', '未找到该数据源。', 'local'));
+          return;
+        }
+        const worksheetId = queryNumber(req.query.worksheetId, source.worksheetIdStart);
+        const token = await getValidWpsAccessToken();
+        const preview = await fetchWpsRangeData(token, {
+          fileId: source.fileId,
+          worksheetId,
+          rowFrom: source.rowFrom,
+          rowTo: source.rowTo,
+          colFrom: source.colFrom,
+          colTo: source.colTo,
+          fieldConfig: source.fieldConfig,
+        });
+        sendJson(res, 200, createApiSuccess({
+          sourceId: source.id,
+          sourceName: source.name,
+          worksheetId,
+          request: {
+            fileId: source.fileId,
+            rowFrom: source.rowFrom,
+            rowTo: source.rowTo,
+            colFrom: 1,
+            colTo: Math.max(source.colTo, 1),
+          },
+          fieldConfig: source.fieldConfig,
+          headers: preview.headers,
+          rawSample: rawRangeSample(preview.rawData),
+          parsedSample: preview.batches.slice(0, 10),
+          totals: {
+            parsedRecords: preview.batches.length,
+            rawCells: rawRangeCellCount(preview.rawData),
+          },
         }));
         return;
       }

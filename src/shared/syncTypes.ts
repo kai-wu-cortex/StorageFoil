@@ -128,6 +128,27 @@ export interface OperationLogEntry {
   createdAt: string;
 }
 
+export interface WpsSourcePreview {
+  sourceId: string;
+  sourceName: string;
+  worksheetId: number;
+  request: {
+    fileId: string;
+    rowFrom: number;
+    rowTo: number;
+    colFrom: number;
+    colTo: number;
+  };
+  fieldConfig: WpsFieldConfig[];
+  headers: string[];
+  rawSample: unknown[];
+  parsedSample: InventoryBatch[];
+  totals: {
+    parsedRecords: number;
+    rawCells: number;
+  };
+}
+
 export interface InventoryBootstrapResponse {
   user: import('./authTypes.ts').AuthUser;
   months: string[];

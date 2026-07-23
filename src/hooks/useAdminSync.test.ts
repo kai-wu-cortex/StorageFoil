@@ -39,6 +39,17 @@ const config = {
 };
 
 const getOperationLogs: AdminSyncClient['getOperationLogs'] = async () => ({ logs: [] });
+const previewWpsSource: AdminSyncClient['previewWpsSource'] = async ({ sourceId, worksheetId }) => ({
+  sourceId,
+  sourceName: 'PL',
+  worksheetId: worksheetId || 1,
+  request: { fileId: 'file-pl', rowFrom: 1, rowTo: 300, colFrom: 1, colTo: 80 },
+  fieldConfig: DEFAULT_WPS_FIELD_CONFIG,
+  headers: ['产品型号', '产品批次'],
+  rawSample: [{ row_from: 1, col_from: 1, cell_text: '产品型号' }],
+  parsedSample: [],
+  totals: { parsedRecords: 0, rawCells: 1 },
+});
 
 test('admin sync controller loads config edits arbitrary sources and handles save conflicts', async () => {
   const states: ReturnType<typeof getInitialAdminSyncState>[] = [];
@@ -55,6 +66,7 @@ test('admin sync controller loads config edits arbitrary sources and handles sav
     triggerSync: async () => ({ id: 'run-1', status: 'queued' }),
     getRun: async () => ({ id: 'run-1', status: 'published' }),
     getOperationLogs,
+    previewWpsSource,
   };
   const controller = createAdminSyncController({
     api,
@@ -88,6 +100,7 @@ test('admin sync controller saves sources without sending App ID or App Key', as
     triggerSync: async () => ({ id: 'run-1', status: 'queued' }),
     getRun: async () => ({ id: 'run-1', status: 'published' }),
     getOperationLogs,
+    previewWpsSource,
   };
   const controller = createAdminSyncController({ api });
 
@@ -108,6 +121,7 @@ test('admin sync controller deletes sources from the saved source list', async (
     triggerSync: async () => ({ id: 'run-1', status: 'queued' }),
     getRun: async () => ({ id: 'run-1', status: 'published' }),
     getOperationLogs,
+    previewWpsSource,
   };
   const controller = createAdminSyncController({ api });
 
@@ -138,6 +152,7 @@ test('admin sync controller authorizes triggers once polls and refreshes only af
       };
     },
     getOperationLogs,
+    previewWpsSource,
   };
   const controller = createAdminSyncController({
     api,
@@ -152,4 +167,23 @@ test('admin sync controller authorizes triggers once polls and refreshes only af
   assert.equal(controller.getState().run?.status, 'published');
   assert.equal(refreshCount, 1);
   assert.deepEqual(seenRunIds, ['run-1', 'run-1']);
+});
+
+test('admin sync controller previews raw WPS response for a source', async () => {
+  const api: AdminSyncClient = {
+    getSyncConfig: async () => config,
+    updateSyncConfig: async () => config,
+    getAuthorizationUrl: async () => ({ url: 'https://openapi.wps.cn/oauth2/auth' }),
+    triggerSync: async () => ({ id: 'run-1', status: 'queued' }),
+    getRun: async () => ({ id: 'run-1', status: 'published' }),
+    getOperationLogs,
+    previewWpsSource,
+  };
+  const controller = createAdminSyncController({ api });
+
+  await controller.previewSource('pl', 7);
+
+  assert.equal(controller.getState().preview?.sourceId, 'pl');
+  assert.equal(controller.getState().preview?.worksheetId, 7);
+  assert.deepEqual(controller.getState().preview?.headers, ['产品型号', '产品批次']);
 });

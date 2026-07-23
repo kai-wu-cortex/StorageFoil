@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_WPS_FIELD_CONFIG } from '../data/wpsFieldConfig';
 import { adminSyncApi } from '../lib/adminSyncApi';
-import type { OperationLogEntry, OperationLogType, PublicWpsCredentials, WpsSyncSourceConfig } from '../shared/syncTypes';
+import type { OperationLogEntry, OperationLogType, PublicWpsCredentials, WpsSourcePreview, WpsSyncSourceConfig } from '../shared/syncTypes';
 
 export interface AdminSyncConfig {
   credentials: PublicWpsCredentials;
@@ -28,6 +28,7 @@ export interface AdminSyncClient {
   triggerSync(body: { idempotencyKey: string }): Promise<AdminSyncRunState>;
   getRun(runId: string): Promise<AdminSyncRunState>;
   getOperationLogs(options?: { limit?: number; type?: OperationLogType; sourceId?: string; month?: string; syncRunId?: string }): Promise<{ logs: OperationLogEntry[] }>;
+  previewWpsSource(options: { sourceId: string; worksheetId?: number }): Promise<WpsSourcePreview>;
 }
 
 export interface NewSyncSourceDraft {
@@ -45,7 +46,9 @@ export interface AdminSyncState {
   isTriggering: boolean;
   isPolling: boolean;
   isLoadingLogs: boolean;
+  isPreviewing: boolean;
   logs: OperationLogEntry[];
+  preview: WpsSourcePreview | null;
   logTypeFilter: OperationLogType | 'all';
   error: string | null;
   message: string | null;
@@ -74,7 +77,9 @@ export function getInitialAdminSyncState(): AdminSyncState {
     isTriggering: false,
     isPolling: false,
     isLoadingLogs: false,
+    isPreviewing: false,
     logs: [],
+    preview: null,
     logTypeFilter: 'all',
     error: null,
     message: null,
@@ -295,6 +300,16 @@ export function createAdminSyncController(options: {
         setState({ ...state, isLoadingLogs: false, error: error instanceof Error ? error.message : '操作日志读取失败。' });
       }
     },
+
+    async previewSource(sourceId: string, worksheetId?: number) {
+      setState({ ...state, isPreviewing: true, error: null, message: null });
+      try {
+        const preview = await options.api.previewWpsSource({ sourceId, worksheetId });
+        setState({ ...state, preview, isPreviewing: false, message: 'WPS 原始响应已读取。' });
+      } catch (error) {
+        setState({ ...state, isPreviewing: false, error: error instanceof Error ? error.message : 'WPS 原始响应读取失败。' });
+      }
+    },
   };
 }
 
@@ -333,5 +348,6 @@ export function useAdminSync(options: {
     pollRunStatus: useCallback((runId: string) => controllerRef.current?.pollRunStatus(runId), []),
     setLogTypeFilter: useCallback((type: OperationLogType | 'all') => controllerRef.current?.setLogTypeFilter(type), []),
     loadOperationLogs: useCallback(() => controllerRef.current?.loadOperationLogs(), []),
+    previewSource: useCallback((sourceId: string, worksheetId?: number) => controllerRef.current?.previewSource(sourceId, worksheetId), []),
   };
 }

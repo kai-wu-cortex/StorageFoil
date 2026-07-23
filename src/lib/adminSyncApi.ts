@@ -69,6 +69,18 @@ export function createAdminSyncApi(fetcher: FetchLike = fetch) {
         }),
       );
     },
+    previewWpsSource: async (options: { sourceId: string; worksheetId?: number }) => {
+      const params = new URLSearchParams();
+      params.set('view', 'wps-preview');
+      params.set('sourceId', options.sourceId);
+      if (options.worksheetId) params.set('worksheetId', String(options.worksheetId));
+      return parseAdminSyncResponse(
+        await awaitFetch(fetcher, `/api/admin/sync-config?${params.toString()}`, {
+          method: 'GET',
+          credentials: 'include',
+        }),
+      );
+    },
   };
 }
 
