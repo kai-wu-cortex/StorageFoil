@@ -18,6 +18,7 @@ import {
   Minimize2,
   List
 } from 'lucide-react';
+import BatchIdentity from './BatchIdentity';
 
 interface InventoryCardsProps {
   batches: InventoryBatch[];
@@ -88,7 +89,6 @@ export default function InventoryCards({ batches, searchQuery }: InventoryCardsP
       case 'compact':
         return {
           cardPad: 'p-3.5 space-y-2.5',
-          modelBadge: 'text-[9px] px-1.5 py-0.5 rounded-sm',
           statusBadge: 'text-[9px] px-1.5 py-0.5',
           titleLabel: 'text-[8px]',
           titleVal: 'text-sm font-bold',
@@ -112,7 +112,6 @@ export default function InventoryCards({ batches, searchQuery }: InventoryCardsP
       case 'spacious':
         return {
           cardPad: 'p-6 space-y-5',
-          modelBadge: 'text-[11px] px-2.5 py-1 rounded-md',
           statusBadge: 'text-[11px] px-3 py-1',
           titleLabel: 'text-[11px]',
           titleVal: 'text-lg font-black',
@@ -137,7 +136,6 @@ export default function InventoryCards({ batches, searchQuery }: InventoryCardsP
       default:
         return {
           cardPad: 'p-4.5 space-y-3.5',
-          modelBadge: 'text-[10px] px-2 py-0.5 rounded-md border border-slate-200/50',
           statusBadge: 'text-[10px] px-2.5 py-0.5',
           titleLabel: 'text-[10px]',
           titleVal: 'text-base font-extrabold',
@@ -257,11 +255,8 @@ export default function InventoryCards({ batches, searchQuery }: InventoryCardsP
                 >
                   {/* Card Upper Segment */}
                   <div className={style.cardPad}>
-                    {/* Badge & Model */}
-                    <div className="flex items-center justify-between">
-                      <span className={`inline-flex items-center gap-1 font-mono font-bold text-slate-500 bg-slate-100 border border-slate-200/50 ${style.modelBadge}`}>
-                        型号: {batch.productModel}
-                      </span>
+                    {/* Stock status */}
+                    <div className="flex items-center justify-end">
                       <span
                         className={`inline-flex items-center gap-1 font-bold rounded-full ${style.statusBadge} ${
                           isZeroStock
@@ -275,15 +270,13 @@ export default function InventoryCards({ batches, searchQuery }: InventoryCardsP
                       </span>
                     </div>
 
-                    {/* Batch Code */}
-                    <div className="space-y-1">
-                      <span className={`font-bold text-slate-400 uppercase tracking-wider block font-mono ${style.titleLabel}`}>
-                        产品批次
-                      </span>
-                      <h4 className={`${style.titleVal} text-slate-800 font-mono tracking-tight leading-none`}>
-                        {highlightText(batch.batchCode, searchQuery)}
-                      </h4>
-                    </div>
+                    <BatchIdentity
+                      productModel={highlightText(batch.productModel, searchQuery)}
+                      batchCode={highlightText(batch.batchCode, searchQuery)}
+                      itemClassName="min-w-0 space-y-1"
+                      labelClassName={`block font-mono font-bold uppercase tracking-wider text-slate-400 ${style.titleLabel}`}
+                      valueClassName={`${style.titleVal} break-words font-mono leading-tight tracking-tight text-slate-800`}
+                    />
 
                     {/* Specification & Shelf details */}
                     <div className={density === 'standard' ? style.gridBox : `grid grid-cols-2 ${style.gridBox} bg-slate-50 border border-slate-100/50`}>

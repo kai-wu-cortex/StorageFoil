@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { LayoutGrid, Layers, Info, MapPin, Box, ArrowRight, Settings, Plus, Minus, RefreshCw } from 'lucide-react';
 import { matchesInventorySearch } from '../lib/inventorySearch';
 import { matchesWarningFilter } from '../lib/warningFilters';
+import BatchIdentity from './BatchIdentity';
 
 interface ShelfVisualizerProps {
   batches: InventoryBatch[];
@@ -566,10 +567,15 @@ export default function ShelfVisualizer({
                         key={batch.id}
                         className="p-2.5 bg-slate-50 rounded-lg border border-slate-150 flex flex-col justify-between gap-2 hover:border-indigo-200 hover:shadow-2xs transition-all"
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono text-[10px] font-bold text-slate-800 bg-white px-1.5 py-0.2 border border-slate-200 rounded">
-                            批次: {batch.batchCode}
-                          </span>
+                        <div className="flex items-start justify-between gap-2">
+                          <BatchIdentity
+                            productModel={batch.productModel}
+                            batchCode={batch.batchCode}
+                            className="min-w-0 flex-1"
+                            itemClassName="min-w-0"
+                            labelClassName="block text-[8px] font-semibold text-slate-400"
+                            valueClassName="mt-0.5 break-words font-mono text-[10px] font-bold leading-tight text-slate-800"
+                          />
                           <span className="font-mono text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 border border-emerald-100 rounded">
                             {batch.totalStock} 支
                           </span>

@@ -23,6 +23,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import { matchesInventorySearch } from '../lib/inventorySearch';
+import BatchIdentity from './BatchIdentity';
 
 interface TimeScaleViewProps {
   batches: InventoryBatch[];
@@ -961,8 +962,15 @@ export default function TimeScaleView({ batches, transactions, currentMonth }: T
                   key={tx.id}
                   className="p-3 bg-slate-50/60 rounded-xl border border-slate-100/80 hover:bg-slate-50 transition-all text-xs space-y-1"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-800">{tx.batchCode}</span>
+                  <div className="flex items-start justify-between gap-3">
+                    <BatchIdentity
+                      productModel={tx.productModel}
+                      batchCode={tx.batchCode}
+                      className="min-w-0 flex-1"
+                      itemClassName="min-w-0"
+                      labelClassName="block text-[8px] font-semibold text-slate-400"
+                      valueClassName="mt-0.5 break-words font-mono text-xs font-bold leading-tight text-slate-800"
+                    />
                     <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
                       tx.type === 'in'
                         ? 'bg-emerald-100 text-emerald-800'
@@ -972,8 +980,7 @@ export default function TimeScaleView({ batches, transactions, currentMonth }: T
                     </span>
                   </div>
                   {tx.notes && <p className="text-[10px] text-slate-500 italic">{tx.notes}</p>}
-                  <div className="flex justify-between text-[8px] text-slate-400 font-mono pt-1">
-                    <span>型号: {tx.productModel}</span>
+                  <div className="flex justify-end text-[8px] text-slate-400 font-mono pt-1">
                     <span>操作: {tx.operator}</span>
                   </div>
                 </div>
