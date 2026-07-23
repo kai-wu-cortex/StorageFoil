@@ -97,11 +97,13 @@ export async function fetchWpsRangeData(
   request: WpsRangeRequest,
 ): Promise<WpsSyncResult> {
   if (!request.fileId) throw new Error('WPS File ID is required.');
+  const colFrom = 1;
+  const colTo = Math.max(request.colTo, colFrom);
   const endpoint =
     `/v7/sheets/${encodeURIComponent(request.fileId)}` +
     `/worksheets/${request.worksheetId}/range_data` +
     `?row_from=${request.rowFrom}&row_to=${request.rowTo}` +
-    `&col_from=${request.colFrom}&col_to=${request.colTo}`;
+    `&col_from=${colFrom}&col_to=${colTo}`;
   const rawData = await wpsGet(context, endpoint);
   return parseInventoryResponse(rawData, request.fieldConfig);
 }

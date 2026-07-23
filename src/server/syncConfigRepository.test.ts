@@ -85,10 +85,13 @@ function validInput(count = 2) {
 }
 
 test('validates unlimited dynamic sources with unique IDs file IDs and normalized ranges', () => {
-  const parsed = validateSyncConfigInput(validInput(25));
+  const input = validInput(25);
+  input.sources[0].colFrom = 2;
+  const parsed = validateSyncConfigInput(input);
   assert.equal(parsed.sources.length, 25);
   assert.equal(parsed.sources[0].worksheetIdStart, 1);
   assert.equal(parsed.sources[0].worksheetIdEnd, 12);
+  assert.equal(parsed.sources[0].colFrom, 1);
 
   const duplicate = validInput();
   duplicate.sources[1].id = duplicate.sources[0].id;
