@@ -7,7 +7,8 @@ import type {
   WpsSyncSourceConfig,
 } from '../shared/syncTypes.ts';
 import { COLLECTION_NAMES } from './collections.ts';
-import { getMongoCollection } from './mongodb.ts';
+import { getMongoCollection, getMongoDb } from './mongodb.ts';
+import { STORAGE_FOIL_COLLECTION_SCHEMAS } from './schemaDefinitions.ts';
 import { encryptSecret } from './secretCrypto.ts';
 
 interface SyncConfigCredentialDocument {
@@ -80,6 +81,24 @@ export interface SyncConfigUpdateInput {
 
 export interface PublicSyncConfigWithRevision extends PublicSyncConfig {
   revision: string;
+}
+
+interface MongoCommandRunner {
+  command(command: Record<string, unknown>): Promise<unknown>;
+}
+
+export async function ensureSyncSourcesValidator(db: MongoCommandRunner): Promise<void> {
+  const schema = STORAGE_FOIL_COLLECTION_SCHEMAS.find(
+    candidate => candidate.name === COLLECTION_NAMES.syncSources,
+  );
+  if (!schema) throw new Error('Sync source schema is not configured.');
+
+  await db.command({
+    collMod: schema.name,
+    validator: schema.validator,
+    validationLevel: 'strict',
+    validationAction: 'error',
+  });
 }
 
 async function getDefaultCollections(): Promise<SyncConfigCollections> {
@@ -184,7 +203,10 @@ export async function updateSyncConfig(
   input: SyncConfigUpdateInput,
   options: { encryptionKey: Buffer; updatedBy: string; expectedRevision?: string },
 ): Promise<PublicSyncConfigWithRevision> {
-  collections = collections ?? (await getDefaultCollections());
+  if (!collections) {
+    await ensureSyncSourcesValidator(await getMongoDb());
+    collections = await getDefaultCollections();
+  }
   const current = (await collections.wpsCredentials.findOne({ _id: 'global' })) as SyncConfigCredentialDocument | null;
   const currentRevision = createRevision(current?.updatedAt);
   if (options.expectedRevision !== undefined && options.expectedRevision !== currentRevision) {

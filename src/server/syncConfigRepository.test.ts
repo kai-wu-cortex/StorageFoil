@@ -4,11 +4,30 @@ import test from 'node:test';
 import { DEFAULT_WPS_FIELD_CONFIG } from '../data/wpsFieldConfig.ts';
 import { decryptSecret, resolveEncryptionKey } from './secretCrypto.ts';
 import {
+  ensureSyncSourcesValidator,
   getPublicSyncConfig,
   updateSyncConfig,
   validateSyncConfigInput,
   type SyncConfigCollections,
 } from './syncConfigRepository.ts';
+
+test('sync source validator migration allows the zero-based product model column', async () => {
+  const commands: Record<string, unknown>[] = [];
+
+  await ensureSyncSourcesValidator({
+    command: async command => {
+      commands.push(command);
+      return { ok: 1 };
+    },
+  });
+
+  assert.equal(commands.length, 1);
+  assert.equal(commands[0].collMod, 'storage_foil_sync_sources');
+  const validator = commands[0].validator as {
+    $jsonSchema: { properties: { colFrom: { minimum: number } } };
+  };
+  assert.equal(validator.$jsonSchema.properties.colFrom.minimum, 0);
+});
 
 function collections(): SyncConfigCollections & { state: { credentials: unknown; sources: unknown[] } } {
   const state: { credentials: unknown; sources: unknown[] } = {
