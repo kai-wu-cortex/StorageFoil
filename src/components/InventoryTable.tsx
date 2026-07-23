@@ -3,6 +3,7 @@ import { InventoryBatch } from '../types';
 import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import { Search, Tag, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { matchesInventorySearch } from '../lib/inventorySearch';
+import { normalizeShelfCode } from '../lib/shelfMap';
 import { matchesWarningFilter } from '../lib/warningFilters';
 
 interface InventoryTableProps {
@@ -33,7 +34,9 @@ export default function InventoryTable({
   sortBy = null,
 }: InventoryTableProps) {
   // Extract unique shelves for filter chips
-  const allShelves = Array.from(new Set(batches.map((b) => b.shelf))).sort();
+  const allShelves = Array.from(
+    new Set(batches.map(batch => normalizeShelfCode(batch.shelf))),
+  ).sort();
 
   // Pagination State for high performance rendering of large datasets
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -56,7 +59,9 @@ export default function InventoryTable({
     const matchesSearch = matchesInventorySearch(b, searchQuery);
 
     // Shelf filter
-    const matchesShelf = selectedShelf ? b.shelf === selectedShelf : true;
+    const matchesShelf = selectedShelf
+      ? normalizeShelfCode(b.shelf) === normalizeShelfCode(selectedShelf)
+      : true;
 
     // Warning filter
     const matchesWarning = matchesWarningFilter(b, selectedWarningFilter);
@@ -186,9 +191,11 @@ export default function InventoryTable({
           {allShelves.map((shelf) => (
             <button
               key={shelf}
-              onClick={() => setSelectedShelf(selectedShelf === shelf ? null : shelf)}
+              onClick={() => setSelectedShelf(
+                selectedShelf && normalizeShelfCode(selectedShelf) === shelf ? null : shelf,
+              )}
               className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
-                selectedShelf === shelf
+                selectedShelf && normalizeShelfCode(selectedShelf) === shelf
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
