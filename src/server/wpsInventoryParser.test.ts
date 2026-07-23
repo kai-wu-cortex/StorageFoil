@@ -52,13 +52,13 @@ test('server parser does not default missing product models to PL', () => {
   assert.deepEqual(result.batches.map(batch => batch.productModel), ['PC', 'PC']);
 });
 
-test('server parser preserves PC numeric model suffixes from WPS rows', () => {
+test('server parser preserves WPS product model cell text and inherits blank model rows', () => {
   const pcRows = [
     ['P C 出 入 库 统 计 表', '', '', '', '', '', '', ''],
     ['产品型号', '产品批次', '规格', '货架', '库存\n总数', '入库\n数量', '出库\n数量', '备注'],
-    ['207', 'PC207-B-001', '0.64*120M', '5-2C', '20', '20', '0', '沙眼'],
-    ['', 'PC207-B-002', '0.64*120M', '5-3B', '4', '4', '0', '沙眼'],
-    ['PC-208', 'PC208-B-001', '0.64*120M', '5-4A', '8', '8', '0', ''],
+    ['PC-207M\n（哑金色）', '220629-3', '0.64*120M', '7-1B', '20', '20', '0', '沙眼'],
+    ['', '220920-1', '0.64*120M', '7-1B', '4', '4', '0', '沙眼'],
+    ['PC-120（9226L）\n（浅灰）', 'PC120-B-001', '0.64*120M', '5-4A', '8', '8', '0', ''],
   ];
   const result = parseInventoryResponse({
     data: {
@@ -68,7 +68,11 @@ test('server parser preserves PC numeric model suffixes from WPS rows', () => {
     },
   }, DEFAULT_WPS_FIELD_CONFIG);
 
-  assert.deepEqual(result.batches.map(batch => batch.productModel), ['PC-207', 'PC-207', 'PC-208']);
+  assert.deepEqual(result.batches.map(batch => batch.productModel), [
+    'PC-207M\n（哑金色）',
+    'PC-207M\n（哑金色）',
+    'PC-120（9226L）\n（浅灰）',
+  ]);
 });
 
 test('server parser preserves full product models for every source when field mapping is stale', () => {

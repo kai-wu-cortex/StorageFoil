@@ -165,19 +165,9 @@ function productFamilyFromTitle(title: string): string {
   return match?.[0] || '';
 }
 
-function productFamilyCode(value: string): string {
-  return text(value).toUpperCase().match(/^P[A-Z]+/u)?.[0] || '';
-}
-
-function resolveProductModel(rawProductModel: string, inheritedProductModel: string, sheetProductFamily: string): string {
+function resolveProductModel(rawProductModel: string, inheritedProductModel: string): string {
   const raw = text(rawProductModel);
   if (!raw) return inheritedProductModel;
-
-  const familyCode = productFamilyCode(sheetProductFamily || inheritedProductModel);
-  const rawUpper = raw.toUpperCase();
-  if (familyCode && /^\d[\dA-Z-]*$/iu.test(raw) && !rawUpper.startsWith(familyCode)) {
-    return `${familyCode}-${raw}`;
-  }
   return raw;
 }
 
@@ -238,7 +228,6 @@ function rowToBatch(
   headers: string[],
   fieldConfig: WpsFieldConfig[],
   inheritedProductModel = '',
-  sheetProductFamily = '',
 ): InventoryBatch | null {
   const mapped = Object.fromEntries(
     fieldConfig.map(field => [field.fieldId, row[findColumn(headers, field.mappedColumn)] || '']),
@@ -246,7 +235,7 @@ function rowToBatch(
 
   const batchCode = text(mapped.batchCode);
   const rawProductModel = productModelCell(row, headers, fieldConfig);
-  const productModel = resolveProductModel(rawProductModel, inheritedProductModel, sheetProductFamily);
+  const productModel = resolveProductModel(rawProductModel, inheritedProductModel);
   const dailyActivities: DailyActivity[] = Array.from({ length: 31 }, (_, index) => ({
     day: index + 1,
     inQty: 0,
@@ -301,9 +290,9 @@ export function parseInventoryResponse(rawData: unknown, fieldConfig: WpsFieldCo
     .map((row, index) => {
       const rowProductModel = productModelCell(row, table.headers, fieldConfig);
       if (rowProductModel) {
-        inheritedProductModel = resolveProductModel(rowProductModel, inheritedProductModel, sheetProductFamily);
+        inheritedProductModel = resolveProductModel(rowProductModel, inheritedProductModel);
       }
-      return rowToBatch(row, table.rowKeys[index] ?? index, table.headers, fieldConfig, inheritedProductModel, sheetProductFamily);
+      return rowToBatch(row, table.rowKeys[index] ?? index, table.headers, fieldConfig, inheritedProductModel);
     })
     .filter((batch): batch is InventoryBatch => batch !== null);
   return { batches, rawData, headers: table.headers };

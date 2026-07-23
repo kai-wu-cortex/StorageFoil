@@ -18,6 +18,10 @@ interface InventoryTableProps {
 
 const ALL_DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
+function getProductType(batch: InventoryBatch): string {
+  return batch.sourceName || batch.sourceId?.toUpperCase() || '—';
+}
+
 export default function InventoryTable({
   batches,
   searchQuery,
@@ -203,9 +207,12 @@ export default function InventoryTable({
             {/* Row 1: Main Headers & Daily Numbers */}
             <tr className="bg-slate-100/80 text-slate-700 font-sans border-b border-slate-200/60">
               <th className="py-1.5 px-1.5 font-semibold text-center sticky left-0 bg-slate-100 z-10 min-w-12 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                产品类型
+              </th>
+              <th className="py-1.5 px-2 font-semibold sticky left-12 bg-slate-100 z-10 min-w-32 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                 产品型号
               </th>
-              <th className="py-1.5 px-2 font-semibold sticky left-12 bg-slate-100 z-10 min-w-24 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+              <th className="py-1.5 px-2 font-semibold sticky left-44 bg-slate-100 z-10 min-w-24 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                 产品批次
               </th>
               <th className="py-1.5 px-2 font-semibold min-w-20">规格</th>
@@ -231,9 +238,10 @@ export default function InventoryTable({
 
             {/* Row 2: Inflow/Outflow Subheaders for Daily Columns */}
             <tr className="bg-slate-50/60 text-slate-500 font-mono border-b border-slate-200 text-[10px]">
-              {/* Placeholders for first 8 columns */}
+              {/* Placeholders for first 9 columns */}
               <th className="p-0.5 sticky left-0 bg-slate-50/60 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]"></th>
               <th className="p-0.5 sticky left-12 bg-slate-50/60 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]"></th>
+              <th className="p-0.5 sticky left-44 bg-slate-50/60 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]"></th>
               <th className="p-0.5"></th>
               <th className="p-0.5"></th>
               <th className="p-0.5 bg-emerald-50/30"></th>
@@ -269,29 +277,34 @@ export default function InventoryTable({
                     }`}
                     id={`batch-row-${batch.batchCode}`}
                   >
-                    {/* 1. 产品型号 */}
+                    {/* 1. 产品类型 */}
                     <td className="py-1 px-1.5 text-center font-mono font-medium text-slate-500 bg-white sticky left-0 z-10 group-hover:bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                      {batch.productModel}
+                      {getProductType(batch)}
                     </td>
 
-                    {/* 2. 产品批次 */}
-                    <td className="py-1 px-1.5 font-mono font-semibold text-slate-800 bg-white sticky left-12 z-10 group-hover:bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                    {/* 2. 产品型号 */}
+                    <td className="py-1 px-1.5 font-mono font-semibold text-slate-800 bg-white sticky left-12 z-10 group-hover:bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] whitespace-pre-line leading-tight">
+                      {highlightText(batch.productModel, searchQuery)}
+                    </td>
+
+                    {/* 3. 产品批次 */}
+                    <td className="py-1 px-1.5 font-mono font-semibold text-slate-800 bg-white sticky left-44 z-10 group-hover:bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                       {highlightText(batch.batchCode, searchQuery)}
                     </td>
 
-                    {/* 3. 规格 */}
+                    {/* 4. 规格 */}
                     <td className="py-1 px-1.5 font-mono text-slate-600">
                       {highlightText(batch.specification, searchQuery)}
                     </td>
 
-                    {/* 4. 货架 */}
+                    {/* 5. 货架 */}
                     <td className="py-1 px-1 text-center">
                       <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-mono font-medium text-[10px] border border-slate-200/50">
                         {highlightText(batch.shelf, searchQuery)}
                       </span>
                     </td>
 
-                    {/* 5. 库存总数 */}
+                    {/* 6. 库存总数 */}
                     <td className="py-1 px-1 text-center font-mono font-bold bg-emerald-50/40 text-emerald-800">
                       <span className={`px-1.5 py-0.2 rounded-full ${
                         batch.totalStock === 0 
@@ -304,17 +317,17 @@ export default function InventoryTable({
                       </span>
                     </td>
 
-                    {/* 6. 入库数量 */}
+                    {/* 7. 入库数量 */}
                     <td className="py-1 px-1 text-center font-mono text-slate-600">
                       {batch.inflowQty}
                     </td>
 
-                    {/* 7. 出库数量 */}
+                    {/* 8. 出库数量 */}
                     <td className="py-1 px-1 text-center font-mono text-slate-500">
                       {batch.outflowQty}
                     </td>
 
-                    {/* 8. 备注 */}
+                    {/* 9. 备注 */}
                     <td className="py-1 px-1.5 text-slate-600 max-w-xs truncate text-[10px]">
                       <span
                         className={`truncate ${

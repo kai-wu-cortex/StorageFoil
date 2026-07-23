@@ -374,7 +374,7 @@ function AuthenticatedStorageFoilApp({
             <TabButton active={activeTab === 'timeline'} onClick={() => setActiveTab('timeline')} icon={<Clock className="w-3.5 h-3.5" />} label="时间尺度看板" />
             <TabButton active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} icon={<History className="w-3.5 h-3.5" />} label="操作日志" />
             {user.role === 'admin' && (
-              <TabButton active={activeTab === 'management'} onClick={() => setActiveTab('management')} icon={<Layers className="w-3.5 h-3.5" />} label="同步后台" />
+              <TabButton id="tab-sync-management" active={activeTab === 'management'} onClick={() => setActiveTab('management')} icon={<Layers className="w-3.5 h-3.5" />} label="同步后台" />
             )}
           </div>
         </div>
@@ -506,17 +506,21 @@ function AuthenticatedStorageFoilApp({
 
 function TabButton({
   active,
+  id,
   icon,
   label,
   onClick,
 }: {
   active: boolean;
+  id?: string;
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
 }) {
   return (
     <button
+      id={id}
+      type="button"
       onClick={onClick}
       className={`flex items-center gap-1 px-3 py-1.5 rounded-t-lg text-xs font-semibold transition-all border-b-2 ${
         active
