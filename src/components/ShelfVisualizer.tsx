@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { InventoryBatch } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { LayoutGrid, Layers, Info, MapPin, Box, ArrowRight, Settings, Plus, Minus, RefreshCw } from 'lucide-react';
+import { matchesInventorySearch } from '../lib/inventorySearch';
 import { matchesWarningFilter } from '../lib/warningFilters';
 
 interface ShelfVisualizerProps {
@@ -94,13 +95,7 @@ export default function ShelfVisualizer({
 
     return cellBatches.some((b) => {
       // Search matching
-      const searchLower = searchQuery ? searchQuery.toLowerCase() : '';
-      const matchesSearch = !searchQuery ||
-        b.batchCode.toLowerCase().includes(searchLower) ||
-        b.shelf.toLowerCase().includes(searchLower) ||
-        b.remarks.toLowerCase().includes(searchLower) ||
-        b.specification.toLowerCase().includes(searchLower) ||
-        b.productModel.toLowerCase().includes(searchLower);
+      const matchesSearch = matchesInventorySearch(b, searchQuery);
 
       // Warning filter
       const matchesWarning = matchesWarningFilter(b, selectedWarningFilter);

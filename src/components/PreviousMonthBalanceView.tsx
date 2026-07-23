@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { InventoryBatch } from '../types';
 import { useLocalStorageState } from '../hooks/useLocalStorageState';
+import { matchesInventorySearch } from '../lib/inventorySearch';
 import {
   Layers,
   Search,
@@ -154,11 +155,7 @@ export default function PreviousMonthBalanceView({
   // Filter previous batches
   const filteredPrevBatches = prevBatches.filter((b) => {
     // Search query match
-    const matchesSearch =
-      b.batchCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.productModel.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.specification.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.shelf.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = matchesInventorySearch(b, searchQuery);
 
     if (!matchesSearch) return false;
 

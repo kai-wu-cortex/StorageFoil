@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLocalStorageState } from '../hooks/useLocalStorageState';
+import { matchesInventorySearch } from '../lib/inventorySearch';
 
 interface TimeScaleViewProps {
   batches: InventoryBatch[];
@@ -323,12 +324,7 @@ export default function TimeScaleView({ batches, transactions, currentMonth }: T
   // Filter historical batches based on query for inline list
   const filteredHistoricalBatches = useMemo(() => {
     return historicalStateAtSelectedDay.filter(b => {
-      const query = searchQuery.toLowerCase();
-      return !searchQuery || 
-        b.batchCode.toLowerCase().includes(query) ||
-        b.productModel.toLowerCase().includes(query) ||
-        b.shelf.toLowerCase().includes(query) ||
-        b.specification.toLowerCase().includes(query);
+      return matchesInventorySearch(b, searchQuery);
     });
   }, [historicalStateAtSelectedDay, searchQuery]);
 

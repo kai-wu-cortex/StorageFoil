@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import { InventoryBatch } from '../types';
 import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import { Search, Tag, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { matchesInventorySearch } from '../lib/inventorySearch';
 import { matchesWarningFilter } from '../lib/warningFilters';
 
 interface InventoryTableProps {
@@ -48,13 +49,7 @@ export default function InventoryTable({
   // Filter batches based on search query, selected shelf, warning filter, and stock level filter
   let filteredBatches = batches.filter((b) => {
     // Search matching
-    const searchLower = searchQuery.toLowerCase();
-    const matchesSearch =
-      b.batchCode.toLowerCase().includes(searchLower) ||
-      b.shelf.toLowerCase().includes(searchLower) ||
-      b.remarks.toLowerCase().includes(searchLower) ||
-      b.specification.toLowerCase().includes(searchLower) ||
-      b.productModel.toLowerCase().includes(searchLower);
+    const matchesSearch = matchesInventorySearch(b, searchQuery);
 
     // Shelf filter
     const matchesShelf = selectedShelf ? b.shelf === selectedShelf : true;

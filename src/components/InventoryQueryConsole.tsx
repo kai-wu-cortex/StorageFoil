@@ -1,5 +1,6 @@
 import { Search, Filter, AlertTriangle, TrendingDown, Boxes, RefreshCw, Layers } from 'lucide-react';
 import { InventoryBatch } from '../types';
+import { matchesInventorySearch } from '../lib/inventorySearch';
 import { countWarningFilterMatches, matchesWarningFilter } from '../lib/warningFilters';
 
 interface InventoryQueryConsoleProps {
@@ -29,14 +30,7 @@ export default function InventoryQueryConsole({
 
     batches.forEach((b) => {
       // Search matching
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch =
-        !searchQuery ||
-        b.batchCode.toLowerCase().includes(searchLower) ||
-        b.shelf.toLowerCase().includes(searchLower) ||
-        b.remarks.toLowerCase().includes(searchLower) ||
-        b.specification.toLowerCase().includes(searchLower) ||
-        b.productModel.toLowerCase().includes(searchLower);
+      const matchesSearch = matchesInventorySearch(b, searchQuery);
 
       // Warning filter
       const matchesWarning = matchesWarningFilter(b, selectedWarningFilter);

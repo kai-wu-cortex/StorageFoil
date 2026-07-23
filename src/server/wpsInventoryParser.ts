@@ -165,6 +165,47 @@ function productFamilyFromTitle(title: string): string {
   return match?.[0] || '';
 }
 
+function productFamilyCode(value: string): string {
+  return text(value).toUpperCase().match(/^P[A-Z]+/u)?.[0] || '';
+}
+
+function resolveProductModel(rawProductModel: string, inheritedProductModel: string, sheetProductFamily: string): string {
+  const raw = text(rawProductModel);
+  if (!raw) return inheritedProductModel;
+
+  const familyCode = productFamilyCode(sheetProductFamily || inheritedProductModel);
+  const rawUpper = raw.toUpperCase();
+  if (familyCode && /^\d[\dA-Z-]*$/iu.test(raw) && !rawUpper.startsWith(familyCode)) {
+    return `${familyCode}-${raw}`;
+  }
+  return raw;
+}
+
+function productModelCell(row: string[], headers: string[], fieldConfig: WpsFieldConfig[]): string {
+  const productModelField = fieldConfig.find(field => field.fieldId === 'productModel');
+  const configuredProductModelColumn = productModelField ? findColumn(headers, productModelField.mappedColumn) : -1;
+  if (configuredProductModelColumn >= 0 && text(row[configuredProductModelColumn])) {
+    return text(row[configuredProductModelColumn]);
+  }
+
+  const defaultProductModelColumn = findColumn(headers, '产品型号');
+  if (defaultProductModelColumn >= 0 && text(row[defaultProductModelColumn])) {
+    return text(row[defaultProductModelColumn]);
+  }
+
+  const batchCodeField = fieldConfig.find(field => field.fieldId === 'batchCode');
+  const configuredBatchCodeColumn = batchCodeField ? findColumn(headers, batchCodeField.mappedColumn) : -1;
+  const defaultBatchCodeColumn = configuredBatchCodeColumn >= 0
+    ? configuredBatchCodeColumn
+    : findColumn(headers, '产品批次');
+  const likelyProductModelColumn = defaultBatchCodeColumn > 0 ? defaultBatchCodeColumn - 1 : -1;
+  if (likelyProductModelColumn >= 0 && text(row[likelyProductModelColumn])) {
+    return text(row[likelyProductModelColumn]);
+  }
+
+  return '';
+}
+
 function dailyColumn(header: string): { day: number; type: 'in' | 'out' } | null {
   const normalized = normalizeHeader(header).replace(/数量/g, '').replace(/库存/g, '').replace(/库/g, '');
   const dayFirst = normalized.match(/^(\d{1,2})(?:号|日)?(入|出)$/u);
@@ -197,13 +238,15 @@ function rowToBatch(
   headers: string[],
   fieldConfig: WpsFieldConfig[],
   inheritedProductModel = '',
+  sheetProductFamily = '',
 ): InventoryBatch | null {
   const mapped = Object.fromEntries(
     fieldConfig.map(field => [field.fieldId, row[findColumn(headers, field.mappedColumn)] || '']),
   ) as Record<WpsFieldConfig['fieldId'], string>;
 
   const batchCode = text(mapped.batchCode);
-  const productModel = text(mapped.productModel) || inheritedProductModel;
+  const rawProductModel = productModelCell(row, headers, fieldConfig);
+  const productModel = resolveProductModel(rawProductModel, inheritedProductModel, sheetProductFamily);
   const dailyActivities: DailyActivity[] = Array.from({ length: 31 }, (_, index) => ({
     day: index + 1,
     inQty: 0,
@@ -223,7 +266,7 @@ function rowToBatch(
   const dailyOut = dailyActivities.reduce((sum, activity) => sum + activity.outQty, 0);
   const hasDescriptiveData = Boolean(text(mapped.specification) || text(mapped.shelf) || text(mapped.remarks));
   const hasNonZeroQuantity = Boolean(numberValue(mapped.totalStock) || numberValue(mapped.inflowQty) || numberValue(mapped.outflowQty) || dailyIn || dailyOut);
-  if (!batchCode && (!text(mapped.productModel) || (!hasDescriptiveData && !hasNonZeroQuantity))) return null;
+  if (!batchCode && (!rawProductModel || (!hasDescriptiveData && !hasNonZeroQuantity))) return null;
 
   const resolvedBatchCode = batchCode || `未标批次-${sourceRow + 1}`;
   const mappedIn = numberValue(mapped.inflowQty);
@@ -252,14 +295,15 @@ function rowToBatch(
 export function parseInventoryResponse(rawData: unknown, fieldConfig: WpsFieldConfig[] = DEFAULT_WPS_FIELD_CONFIG): WpsSyncResult {
   const apiResponse = rawData as { data?: { range_data?: WpsRangeCell[] } };
   const table = extractTable(apiResponse?.data?.range_data || []);
-  const productModelField = fieldConfig.find(field => field.fieldId === 'productModel');
-  const productModelColumn = productModelField ? findColumn(table.headers, productModelField.mappedColumn) : -1;
-  let inheritedProductModel = productFamilyFromTitle(table.title);
+  const sheetProductFamily = productFamilyFromTitle(table.title);
+  let inheritedProductModel = sheetProductFamily;
   const batches = table.rows
     .map((row, index) => {
-      const rowProductModel = productModelColumn >= 0 ? text(row[productModelColumn]) : '';
-      if (rowProductModel) inheritedProductModel = rowProductModel;
-      return rowToBatch(row, table.rowKeys[index] ?? index, table.headers, fieldConfig, inheritedProductModel);
+      const rowProductModel = productModelCell(row, table.headers, fieldConfig);
+      if (rowProductModel) {
+        inheritedProductModel = resolveProductModel(rowProductModel, inheritedProductModel, sheetProductFamily);
+      }
+      return rowToBatch(row, table.rowKeys[index] ?? index, table.headers, fieldConfig, inheritedProductModel, sheetProductFamily);
     })
     .filter((batch): batch is InventoryBatch => batch !== null);
   return { batches, rawData, headers: table.headers };

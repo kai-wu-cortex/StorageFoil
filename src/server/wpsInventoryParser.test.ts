@@ -52,6 +52,53 @@ test('server parser does not default missing product models to PL', () => {
   assert.deepEqual(result.batches.map(batch => batch.productModel), ['PC', 'PC']);
 });
 
+test('server parser preserves PC numeric model suffixes from WPS rows', () => {
+  const pcRows = [
+    ['P C 出 入 库 统 计 表', '', '', '', '', '', '', ''],
+    ['产品型号', '产品批次', '规格', '货架', '库存\n总数', '入库\n数量', '出库\n数量', '备注'],
+    ['207', 'PC207-B-001', '0.64*120M', '5-2C', '20', '20', '0', '沙眼'],
+    ['', 'PC207-B-002', '0.64*120M', '5-3B', '4', '4', '0', '沙眼'],
+    ['PC-208', 'PC208-B-001', '0.64*120M', '5-4A', '8', '8', '0', ''],
+  ];
+  const result = parseInventoryResponse({
+    data: {
+      range_data: pcRows.flatMap((row, rowIndex) =>
+        row.map((cell, colIndex) => ({ row_from: rowIndex, col_from: colIndex, cell_text: cell })),
+      ),
+    },
+  }, DEFAULT_WPS_FIELD_CONFIG);
+
+  assert.deepEqual(result.batches.map(batch => batch.productModel), ['PC-207', 'PC-207', 'PC-208']);
+});
+
+test('server parser preserves full product models for every source when field mapping is stale', () => {
+  const mixedRows = [
+    ['P Y 出 入 库 统 计 表', '', '', '', '', '', '', ''],
+    ['产品型号', '产品批次', '规格', '货架', '库存\n总数', '入库\n数量', '出库\n数量', '备注'],
+    ['PY-207A\n（金色）', '260701-01', '0.64*120M', '6-1A', '12', '12', '0', ''],
+    ['PK-503-2', '260701-02', '0.64*120M', '6-1B', '8', '8', '0', ''],
+    ['PW25-207\n（金色）', '260701-03', '0.64*120M', '6-1C', '5', '5', '0', ''],
+  ];
+  const staleConfig = DEFAULT_WPS_FIELD_CONFIG.map(field =>
+    field.fieldId === 'productModel'
+      ? { ...field, mappedColumn: '旧产品型号配置' }
+      : field,
+  );
+  const result = parseInventoryResponse({
+    data: {
+      range_data: mixedRows.flatMap((row, rowIndex) =>
+        row.map((cell, colIndex) => ({ row_from: rowIndex, col_from: colIndex, cell_text: cell })),
+      ),
+    },
+  }, staleConfig);
+
+  assert.deepEqual(result.batches.map(batch => batch.productModel), [
+    'PY-207A\n（金色）',
+    'PK-503-2',
+    'PW25-207\n（金色）',
+  ]);
+});
+
 test('server worksheet selection uses configured range and month names first', () => {
   assert.deepEqual(
     selectInventoryWorksheets(

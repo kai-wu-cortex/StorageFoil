@@ -17,6 +17,7 @@ import PinteLogo from './components/PinteLogo';
 import { useAuthSession } from './hooks/useAuthSession';
 import { useInventoryData } from './hooks/useInventoryData';
 import { useLocalStorageState } from './hooks/useLocalStorageState';
+import { matchesInventorySearch } from './lib/inventorySearch';
 import { matchesWarningFilter } from './lib/warningFilters';
 import type { AuthUser } from './shared/authTypes';
 import {
@@ -138,14 +139,7 @@ function AuthenticatedStorageFoilApp({
 
   const filteredQueryBatches = useMemo(() => {
     return sourceFilteredBatches.filter(batch => {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch =
-        !searchQuery ||
-        batch.batchCode.toLowerCase().includes(searchLower) ||
-        batch.shelf.toLowerCase().includes(searchLower) ||
-        batch.remarks.toLowerCase().includes(searchLower) ||
-        batch.specification.toLowerCase().includes(searchLower) ||
-        batch.productModel.toLowerCase().includes(searchLower);
+      const matchesSearch = matchesInventorySearch(batch, searchQuery);
 
       const matchesWarning = matchesWarningFilter(batch, selectedWarningFilter);
 
