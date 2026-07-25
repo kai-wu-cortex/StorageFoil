@@ -224,7 +224,7 @@ test('source-only updates preserve existing WPS App ID redirect and App Key', as
   assert.equal(decryptSecret(storedAfter.appKeyEncrypted, key), 'new-app-key');
 });
 
-test('maps the legacy 300-row marker to the new 9999-row default', async () => {
+test('maps legacy row and column markers to the new WPS read defaults', async () => {
   const coll = collections();
   const key = resolveEncryptionKey(randomBytes(32).toString('base64'));
   const input = validInput();
@@ -240,9 +240,12 @@ test('maps the legacy 300-row marker to the new 9999-row default', async () => {
     source => (source as { _id: string })._id === 'source-1',
   ) as {
     rowTo: number;
+    colFrom: number;
   };
   assert.equal(stored.rowTo, 300);
+  assert.equal(stored.colFrom, 1);
   assert.equal(config.sources[0].rowTo, 9999);
+  assert.equal(config.sources[0].colFrom, 0);
 });
 
 test('source updates delete removed source documents instead of disabling them', async () => {

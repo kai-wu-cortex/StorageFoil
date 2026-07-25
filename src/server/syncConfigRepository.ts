@@ -89,9 +89,10 @@ interface MongoCommandRunner {
 }
 
 // The production collection was originally created with rowTo <= 300 and
-// rejects additional properties. Treat its former default value as the marker
-// for the new 9999-row default until an administrator can migrate the validator.
+// colFrom >= 1. Treat those legacy values as compatibility markers for the new
+// 9999-row / zero-based-column defaults until the validator can be migrated.
 const LEGACY_SYNC_SOURCE_ROW_TO_MAX = 300;
+const LEGACY_SYNC_SOURCE_COL_FROM_MIN = 1;
 
 export async function ensureSyncSourcesValidator(db: MongoCommandRunner): Promise<void> {
   const schema = STORAGE_FOIL_COLLECTION_SCHEMAS.find(
@@ -147,7 +148,7 @@ function publicSource(doc: SyncSourceDocument): WpsSyncSourceConfig {
     worksheetIdEnd: doc.worksheetIdEnd,
     rowFrom: doc.rowFrom,
     rowTo: doc.rowTo === LEGACY_SYNC_SOURCE_ROW_TO_MAX ? DEFAULT_WPS_ROW_TO : doc.rowTo,
-    colFrom: doc.colFrom,
+    colFrom: doc.colFrom === LEGACY_SYNC_SOURCE_COL_FROM_MIN ? 0 : doc.colFrom,
     colTo: doc.colTo,
     fieldConfig: doc.fieldConfig || DEFAULT_WPS_FIELD_CONFIG,
     updatedAt: createRevision(doc.updatedAt),
@@ -249,7 +250,7 @@ export async function updateSyncConfig(
           worksheetIdEnd: source.worksheetIdEnd,
           rowFrom: source.rowFrom,
           rowTo: Math.min(source.rowTo, LEGACY_SYNC_SOURCE_ROW_TO_MAX),
-          colFrom: source.colFrom,
+          colFrom: Math.max(source.colFrom, LEGACY_SYNC_SOURCE_COL_FROM_MIN),
           colTo: source.colTo,
           fieldConfig: source.fieldConfig,
           updatedAt: now,
