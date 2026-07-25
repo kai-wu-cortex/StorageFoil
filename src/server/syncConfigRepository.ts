@@ -25,6 +25,7 @@ interface SyncConfigCredentialDocument {
 
 interface SyncSourceDocument extends Omit<WpsSyncSourceConfig, 'id' | 'updatedAt'> {
   _id: string;
+  readRowTo?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -87,6 +88,11 @@ interface MongoCommandRunner {
   command(command: Record<string, unknown>): Promise<unknown>;
 }
 
+// The production collection was originally created with rowTo <= 300.
+// Keep that compatibility field valid until an administrator can run the
+// validator migration, while persisting the effective limit separately.
+const LEGACY_SYNC_SOURCE_ROW_TO_MAX = 300;
+
 export async function ensureSyncSourcesValidator(db: MongoCommandRunner): Promise<void> {
   const schema = STORAGE_FOIL_COLLECTION_SCHEMAS.find(
     candidate => candidate.name === COLLECTION_NAMES.syncSources,
@@ -140,7 +146,7 @@ function publicSource(doc: SyncSourceDocument): WpsSyncSourceConfig {
     worksheetIdStart: doc.worksheetIdStart,
     worksheetIdEnd: doc.worksheetIdEnd,
     rowFrom: doc.rowFrom,
-    rowTo: doc.rowTo,
+    rowTo: doc.readRowTo ?? doc.rowTo,
     colFrom: doc.colFrom,
     colTo: doc.colTo,
     fieldConfig: doc.fieldConfig || DEFAULT_WPS_FIELD_CONFIG,
@@ -242,7 +248,8 @@ export async function updateSyncConfig(
           worksheetIdStart: source.worksheetIdStart,
           worksheetIdEnd: source.worksheetIdEnd,
           rowFrom: source.rowFrom,
-          rowTo: source.rowTo,
+          rowTo: Math.min(source.rowTo, LEGACY_SYNC_SOURCE_ROW_TO_MAX),
+          readRowTo: source.rowTo,
           colFrom: source.colFrom,
           colTo: source.colTo,
           fieldConfig: source.fieldConfig,

@@ -126,6 +126,7 @@ export const STORAGE_FOIL_COLLECTION_SCHEMAS: StorageFoilCollectionSchema[] = [
           worksheetIdEnd: { bsonType: 'int', minimum: 1 },
           rowFrom: { bsonType: 'int', minimum: 1 },
           rowTo: { bsonType: 'int', minimum: 1 },
+          readRowTo: { bsonType: 'int', minimum: 1 },
           colFrom: { bsonType: 'int', minimum: 0 },
           colTo: { bsonType: 'int', minimum: 1 },
           fieldConfig: fieldConfigSchema,

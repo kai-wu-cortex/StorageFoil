@@ -224,6 +224,29 @@ test('source-only updates preserve existing WPS App ID redirect and App Key', as
   assert.equal(decryptSecret(storedAfter.appKeyEncrypted, key), 'new-app-key');
 });
 
+test('persists extended read limits without violating the legacy rowTo validator', async () => {
+  const coll = collections();
+  const key = resolveEncryptionKey(randomBytes(32).toString('base64'));
+  const input = validInput();
+  input.sources[0].rowTo = 9999;
+
+  const config = await updateSyncConfig(coll, input, {
+    encryptionKey: key,
+    updatedBy: 'admin',
+    expectedRevision: '',
+  });
+
+  const stored = coll.state.sources.find(
+    source => (source as { _id: string })._id === 'source-1',
+  ) as {
+    rowTo: number;
+    readRowTo: number;
+  };
+  assert.equal(stored.rowTo, 300);
+  assert.equal(stored.readRowTo, 9999);
+  assert.equal(config.sources[0].rowTo, 9999);
+});
+
 test('source updates delete removed source documents instead of disabling them', async () => {
   const coll = collections();
   const key = resolveEncryptionKey(randomBytes(32).toString('base64'));
