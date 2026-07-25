@@ -36,6 +36,7 @@ test('initial source manifest covers the five current XLSX logical sources witho
 
   assert.equal(manifest.credentials.appId, 'app-id');
   assert.equal(manifest.sources.length, 5);
+  assert.deepEqual(manifest.sources.map(source => source.rowTo), [9999, 9999, 9999, 9999, 9999]);
   assert.deepEqual(
     manifest.sources.map(source => [source.id, source.fileId, source.worksheetIdStart, source.worksheetIdEnd]),
     [

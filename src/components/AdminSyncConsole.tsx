@@ -4,6 +4,7 @@ import type { AuthUser } from '../shared/authTypes';
 import type { WpsSyncSourceConfig } from '../shared/syncTypes';
 import type { WpsFieldConfig } from '../types';
 import { useAdminSync } from '../hooks/useAdminSync';
+import { DEFAULT_WPS_ROW_TO } from '../data/wpsSyncDefaults';
 
 export function shouldRenderAdminSyncConsole(user: AuthUser | null): boolean {
   return user?.role === 'admin';
@@ -140,7 +141,10 @@ export default function AdminSyncConsole({
               source={source}
               onChange={values => sync.updateSource(source.id, values)}
               onRemove={() => sync.removeSource(source.id)}
+              onSave={() => void sync.saveSource(source.id)}
               onPreview={worksheetId => void sync.previewSource(source.id, worksheetId)}
+              saveDisabled={sync.isSaving}
+              isSaving={sync.savingSourceId === source.id}
               isPreviewing={sync.isPreviewing && sync.preview?.sourceId !== source.id}
             />
           ))}
@@ -192,13 +196,19 @@ function SourceCard({
   source,
   onChange,
   onRemove,
+  onSave,
   onPreview,
+  saveDisabled,
+  isSaving,
   isPreviewing,
 }: {
   source: WpsSyncSourceConfig;
   onChange: (values: Partial<WpsSyncSourceConfig>) => void;
   onRemove: () => void;
+  onSave: () => void;
   onPreview: (worksheetId?: number) => void;
+  saveDisabled: boolean;
+  isSaving: boolean;
   isPreviewing: boolean;
 }) {
   const updateFieldConfig = (index: number, values: Partial<WpsFieldConfig>) => {
@@ -229,7 +239,7 @@ function SourceCard({
         <Field label="工作表起始 ID"><input className={inputClass} type="number" value={source.worksheetIdStart} onChange={event => onChange({ worksheetIdStart: Number(event.target.value) || 1 })} /></Field>
         <Field label="工作表结束 ID"><input className={inputClass} type="number" value={source.worksheetIdEnd} onChange={event => onChange({ worksheetIdEnd: Number(event.target.value) || 12 })} /></Field>
         <Field label="读取起始行"><input className={inputClass} type="number" value={source.rowFrom} onChange={event => onChange({ rowFrom: Number(event.target.value) || 1 })} /></Field>
-        <Field label="读取结束行"><input className={inputClass} type="number" value={source.rowTo} onChange={event => onChange({ rowTo: Number(event.target.value) || 300 })} /></Field>
+        <Field label="读取结束行"><input className={inputClass} type="number" min={1} value={source.rowTo} onChange={event => onChange({ rowTo: Number(event.target.value) || DEFAULT_WPS_ROW_TO })} /></Field>
         <Field label="读取起始列"><input className={`${inputClass} bg-slate-100 text-slate-400`} type="number" value={0} readOnly /></Field>
         <Field label="读取结束列"><input className={inputClass} type="number" value={source.colTo} onChange={event => onChange({ colTo: Number(event.target.value) || 80 })} /></Field>
       </div>
@@ -261,7 +271,15 @@ function SourceCard({
           ))}
         </div>
       </div>
-      <div className="mt-2 text-[10px] font-semibold text-slate-400">工作表范围预览：{source.worksheetIdStart} → {source.worksheetIdEnd}；读取范围：行 {source.rowFrom} → {source.rowTo}，列 0 → {source.colTo}</div>
+      <div className="mt-3 flex flex-col gap-2 border-t border-slate-200/70 pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-[10px] font-semibold text-slate-400">
+          工作表范围预览：{source.worksheetIdStart} → {source.worksheetIdEnd}；读取范围：行 {source.rowFrom} → {source.rowTo}，列 0 → {source.colTo}
+        </div>
+        <button type="button" onClick={onSave} disabled={saveDisabled} className={primaryButtonClass}>
+          {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          {isSaving ? '保存中…' : '保存此数据源'}
+        </button>
+      </div>
     </div>
   );
 }

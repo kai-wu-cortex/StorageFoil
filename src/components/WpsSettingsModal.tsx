@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Database, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
 import { DEFAULT_WPS_FIELD_CONFIG } from '../data/wpsFieldConfig';
+import { DEFAULT_WPS_ROW_TO } from '../data/wpsSyncDefaults';
 import { adminSyncApi } from '../lib/adminSyncApi';
 import type { WpsSyncSourceConfig } from '../shared/syncTypes';
 
@@ -81,7 +82,7 @@ export default function WpsSettingsModal({ open, onClose }: WpsSettingsModalProp
       worksheetIdStart: 1,
       worksheetIdEnd: 12,
       rowFrom: 1,
-      rowTo: 300,
+      rowTo: DEFAULT_WPS_ROW_TO,
       colFrom: 1,
       colTo: 80,
       fieldConfig: DEFAULT_WPS_FIELD_CONFIG,

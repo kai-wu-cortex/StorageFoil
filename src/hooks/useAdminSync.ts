@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_WPS_FIELD_CONFIG } from '../data/wpsFieldConfig';
+import { DEFAULT_WPS_ROW_TO } from '../data/wpsSyncDefaults';
 import { adminSyncApi } from '../lib/adminSyncApi';
 import type { OperationLogEntry, OperationLogType, PublicWpsCredentials, WpsSourcePreview, WpsSyncSourceConfig } from '../shared/syncTypes';
 
@@ -43,6 +44,7 @@ export interface AdminSyncState {
   config: AdminSyncConfig;
   run: AdminSyncRunState | null;
   isSaving: boolean;
+  savingSourceId: string | null;
   isTriggering: boolean;
   isPolling: boolean;
   isLoadingLogs: boolean;
@@ -74,6 +76,7 @@ export function getInitialAdminSyncState(): AdminSyncState {
     config: emptyConfig,
     run: null,
     isSaving: false,
+    savingSourceId: null,
     isTriggering: false,
     isPolling: false,
     isLoadingLogs: false,
@@ -164,7 +167,7 @@ export function createAdminSyncController(options: {
             worksheetIdStart: 1,
             worksheetIdEnd: 12,
             rowFrom: 1,
-            rowTo: 300,
+            rowTo: DEFAULT_WPS_ROW_TO,
             colFrom: 0,
             colTo: 80,
             fieldConfig: DEFAULT_WPS_FIELD_CONFIG,
@@ -199,30 +202,62 @@ export function createAdminSyncController(options: {
     },
 
     async save(appKey = '') {
-      setState({ ...state, isSaving: true, error: null, message: null });
+      setState({ ...state, isSaving: true, savingSourceId: null, error: null, message: null });
       try {
         const config = await options.api.updateSyncConfig({
           revision: state.config.revision,
           credentials: { ...state.config.credentials, appKey: appKey || undefined },
           sources: state.config.sources,
         });
-        setState({ ...state, config, isSaving: false, message: '同步配置已保存。', error: null });
+        setState({ ...state, config, isSaving: false, savingSourceId: null, message: '同步配置已保存。', error: null });
       } catch (error) {
-        setState({ ...state, isSaving: false, error: error instanceof Error ? error.message : '同步配置保存失败。' });
+        setState({ ...state, isSaving: false, savingSourceId: null, error: error instanceof Error ? error.message : '同步配置保存失败。' });
       }
     },
 
     async saveSources() {
-      setState({ ...state, isSaving: true, error: null, message: null });
+      setState({ ...state, isSaving: true, savingSourceId: null, error: null, message: null });
       try {
         const config = await options.api.updateSyncConfig({
           revision: state.config.revision,
           credentials: {},
           sources: state.config.sources,
         });
-        setState({ ...state, config, isSaving: false, message: '数据源已保存。', error: null });
+        setState({ ...state, config, isSaving: false, savingSourceId: null, message: '数据源已保存。', error: null });
       } catch (error) {
-        setState({ ...state, isSaving: false, error: error instanceof Error ? error.message : '数据源保存失败。' });
+        setState({ ...state, isSaving: false, savingSourceId: null, error: error instanceof Error ? error.message : '数据源保存失败。' });
+      }
+    },
+
+    async saveSource(sourceId: string) {
+      const source = state.config.sources.find(candidate => candidate.id === sourceId);
+      if (!source) {
+        setState({ ...state, error: '找不到需要保存的数据源。', message: null });
+        return;
+      }
+
+      setState({ ...state, isSaving: true, savingSourceId: sourceId, error: null, message: null });
+      try {
+        const config = await options.api.updateSyncConfig({
+          revision: state.config.revision,
+          credentials: {},
+          sources: state.config.sources,
+        });
+        setState({
+          ...state,
+          config,
+          isSaving: false,
+          savingSourceId: null,
+          message: `数据源“${source.name}”已保存。`,
+          error: null,
+        });
+      } catch (error) {
+        setState({
+          ...state,
+          isSaving: false,
+          savingSourceId: null,
+          error: error instanceof Error ? error.message : `数据源“${source.name}”保存失败。`,
+        });
       }
     },
 
@@ -343,6 +378,7 @@ export function useAdminSync(options: {
     updateCredentials: useCallback((values: Partial<PublicWpsCredentials>) => controllerRef.current?.updateCredentials(values), []),
     save: useCallback((appKey?: string) => controllerRef.current?.save(appKey), []),
     saveSources: useCallback(() => controllerRef.current?.saveSources(), []),
+    saveSource: useCallback((sourceId: string) => controllerRef.current?.saveSource(sourceId), []),
     authorizeWps: useCallback(() => controllerRef.current?.authorizeWps(), []),
     triggerSync: useCallback(() => controllerRef.current?.triggerSync(), []),
     pollRunStatus: useCallback((runId: string) => controllerRef.current?.pollRunStatus(runId), []),

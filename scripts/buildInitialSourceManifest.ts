@@ -1,4 +1,5 @@
 import { DEFAULT_WPS_FIELD_CONFIG } from '../src/data/wpsFieldConfig';
+import { DEFAULT_WPS_ROW_TO } from '../src/data/wpsSyncDefaults';
 import type { WpsSyncSourceConfig } from '../src/shared/syncTypes';
 
 export interface InitialSourceDefinition {
@@ -41,7 +42,7 @@ function toSourceConfig(definition: InitialSourceDefinition, fileId: string): Wp
     worksheetIdStart: 1,
     worksheetIdEnd: 12,
     rowFrom: 1,
-    rowTo: 300,
+    rowTo: DEFAULT_WPS_ROW_TO,
     colFrom: 1,
     colTo: 80,
     fieldConfig: DEFAULT_WPS_FIELD_CONFIG,

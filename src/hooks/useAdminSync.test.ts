@@ -111,6 +111,33 @@ test('admin sync controller saves sources without sending App ID or App Key', as
 
   assert.deepEqual(savedBody?.credentials, {});
   assert.equal(savedBody?.sources.length, 2);
+  assert.equal(savedBody?.sources[1].rowTo, 9999);
+});
+
+test('admin sync controller saves an edited source from its own card', async () => {
+  let savedBody: Parameters<AdminSyncClient['updateSyncConfig']>[0] | null = null;
+  const api: AdminSyncClient = {
+    getSyncConfig: async () => config,
+    updateSyncConfig: async body => {
+      savedBody = body;
+      return { ...config, sources: body.sources };
+    },
+    getAuthorizationUrl: async () => ({ url: 'https://openapi.wps.cn/oauth2/auth' }),
+    triggerSync: async () => ({ id: 'run-1', status: 'queued' }),
+    getRun: async () => ({ id: 'run-1', status: 'published' }),
+    getOperationLogs,
+    previewWpsSource,
+  };
+  const controller = createAdminSyncController({ api });
+
+  await controller.load();
+  controller.updateSource('pl', { rowTo: 9999 });
+  await controller.saveSource('pl');
+
+  assert.deepEqual(savedBody?.credentials, {});
+  assert.equal(savedBody?.sources[0].rowTo, 9999);
+  assert.equal(controller.getState().savingSourceId, null);
+  assert.equal(controller.getState().message, '数据源“PL”已保存。');
 });
 
 test('admin sync controller deletes sources from the saved source list', async () => {
