@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import { Search, Filter, AlertTriangle, TrendingDown, Boxes, RefreshCw, Layers } from 'lucide-react';
 import { InventoryBatch } from '../types';
 import { matchesInventorySearch } from '../lib/inventorySearch';
+import { shouldPublishImeInput } from '../lib/imeInput';
 import { countWarningFilterMatches, matchesWarningFilter } from '../lib/warningFilters';
 
 interface InventoryQueryConsoleProps {
@@ -22,6 +24,20 @@ export default function InventoryQueryConsole({
   selectedStockLevelFilter,
   setSelectedStockLevelFilter,
 }: InventoryQueryConsoleProps) {
+  const [searchInputValue, setSearchInputValue] = useState(searchQuery);
+  const isComposingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isComposingRef.current) {
+      setSearchInputValue(searchQuery);
+    }
+  }, [searchQuery]);
+
+  const clearSearchQuery = () => {
+    isComposingRef.current = false;
+    setSearchInputValue('');
+    setSearchQuery('');
+  };
   
   // Calculate matching counts
   const getFilteredStats = () => {
@@ -58,7 +74,7 @@ export default function InventoryQueryConsole({
   const isAnyFilterActive = searchQuery !== '' || selectedWarningFilter !== null || selectedStockLevelFilter !== null;
 
   const handleResetAll = () => {
-    setSearchQuery('');
+    clearSearchQuery();
     setSelectedWarningFilter(null);
     setSelectedStockLevelFilter(null);
   };
@@ -110,14 +126,32 @@ export default function InventoryQueryConsole({
           <input
             type="text"
             placeholder="输入产品型号、批号(如 20211115)、规格、货架或备注..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchInputValue}
+            onCompositionStart={() => {
+              isComposingRef.current = true;
+            }}
+            onCompositionEnd={(event) => {
+              isComposingRef.current = false;
+              const nextValue = event.currentTarget.value;
+              setSearchInputValue(nextValue);
+              setSearchQuery(nextValue);
+            }}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setSearchInputValue(nextValue);
+              const nativeEventIsComposing = Boolean(
+                (event.nativeEvent as InputEvent).isComposing,
+              );
+              if (shouldPublishImeInput(isComposingRef.current, nativeEventIsComposing)) {
+                setSearchQuery(nextValue);
+              }
+            }}
             className="w-full h-9 pl-9 pr-10 py-0 bg-[#F8F9FB] border border-slate-200 hover:border-slate-300 focus:bg-white rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-500 transition-all font-sans"
             id="console-search-input"
           />
-          {searchQuery && (
+          {searchInputValue && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={clearSearchQuery}
               className="absolute inset-y-0 right-0 flex items-center pr-3 text-[10px] font-medium text-slate-400 hover:text-slate-600 font-sans"
               id="console-clear-search"
             >
