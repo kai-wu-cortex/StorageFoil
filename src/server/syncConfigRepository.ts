@@ -7,7 +7,7 @@ import type {
   WpsSyncSourceConfig,
 } from '../shared/syncTypes.ts';
 import { COLLECTION_NAMES } from './collections.ts';
-import { getMongoCollection, getMongoDb } from './mongodb.ts';
+import { getMongoCollection } from './mongodb.ts';
 import { STORAGE_FOIL_COLLECTION_SCHEMAS } from './schemaDefinitions.ts';
 import { encryptSecret } from './secretCrypto.ts';
 
@@ -203,10 +203,10 @@ export async function updateSyncConfig(
   input: SyncConfigUpdateInput,
   options: { encryptionKey: Buffer; updatedBy: string; expectedRevision?: string },
 ): Promise<PublicSyncConfigWithRevision> {
-  if (!collections) {
-    await ensureSyncSourcesValidator(await getMongoDb());
-    collections = await getDefaultCollections();
-  }
+  // Collection validators are installed by the database migration/bootstrap
+  // workflow. Runtime config saves must only require ordinary read/write
+  // privileges; Atlas application users intentionally do not have collMod.
+  collections = collections ?? (await getDefaultCollections());
   const current = (await collections.wpsCredentials.findOne({ _id: 'global' })) as SyncConfigCredentialDocument | null;
   const currentRevision = createRevision(current?.updatedAt);
   if (options.expectedRevision !== undefined && options.expectedRevision !== currentRevision) {
