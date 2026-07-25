@@ -224,7 +224,7 @@ test('source-only updates preserve existing WPS App ID redirect and App Key', as
   assert.equal(decryptSecret(storedAfter.appKeyEncrypted, key), 'new-app-key');
 });
 
-test('persists extended read limits without violating the legacy rowTo validator', async () => {
+test('maps the legacy 300-row marker to the new 9999-row default', async () => {
   const coll = collections();
   const key = resolveEncryptionKey(randomBytes(32).toString('base64'));
   const input = validInput();
@@ -240,10 +240,8 @@ test('persists extended read limits without violating the legacy rowTo validator
     source => (source as { _id: string })._id === 'source-1',
   ) as {
     rowTo: number;
-    readRowTo: number;
   };
   assert.equal(stored.rowTo, 300);
-  assert.equal(stored.readRowTo, 9999);
   assert.equal(config.sources[0].rowTo, 9999);
 });
 

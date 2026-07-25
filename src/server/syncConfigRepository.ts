@@ -1,4 +1,5 @@
 import { DEFAULT_WPS_FIELD_CONFIG } from '../data/wpsFieldConfig.ts';
+import { DEFAULT_WPS_ROW_TO } from '../data/wpsSyncDefaults.ts';
 import { normalizeWorksheetRange } from '../shared/apiTypes.ts';
 import type {
   EncryptedSecret,
@@ -25,7 +26,6 @@ interface SyncConfigCredentialDocument {
 
 interface SyncSourceDocument extends Omit<WpsSyncSourceConfig, 'id' | 'updatedAt'> {
   _id: string;
-  readRowTo?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -88,9 +88,9 @@ interface MongoCommandRunner {
   command(command: Record<string, unknown>): Promise<unknown>;
 }
 
-// The production collection was originally created with rowTo <= 300.
-// Keep that compatibility field valid until an administrator can run the
-// validator migration, while persisting the effective limit separately.
+// The production collection was originally created with rowTo <= 300 and
+// rejects additional properties. Treat its former default value as the marker
+// for the new 9999-row default until an administrator can migrate the validator.
 const LEGACY_SYNC_SOURCE_ROW_TO_MAX = 300;
 
 export async function ensureSyncSourcesValidator(db: MongoCommandRunner): Promise<void> {
@@ -146,7 +146,7 @@ function publicSource(doc: SyncSourceDocument): WpsSyncSourceConfig {
     worksheetIdStart: doc.worksheetIdStart,
     worksheetIdEnd: doc.worksheetIdEnd,
     rowFrom: doc.rowFrom,
-    rowTo: doc.readRowTo ?? doc.rowTo,
+    rowTo: doc.rowTo === LEGACY_SYNC_SOURCE_ROW_TO_MAX ? DEFAULT_WPS_ROW_TO : doc.rowTo,
     colFrom: doc.colFrom,
     colTo: doc.colTo,
     fieldConfig: doc.fieldConfig || DEFAULT_WPS_FIELD_CONFIG,
@@ -249,7 +249,6 @@ export async function updateSyncConfig(
           worksheetIdEnd: source.worksheetIdEnd,
           rowFrom: source.rowFrom,
           rowTo: Math.min(source.rowTo, LEGACY_SYNC_SOURCE_ROW_TO_MAX),
-          readRowTo: source.rowTo,
           colFrom: source.colFrom,
           colTo: source.colTo,
           fieldConfig: source.fieldConfig,
