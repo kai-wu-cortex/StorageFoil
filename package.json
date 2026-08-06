@@ -10,6 +10,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "db:indexes": "tsx scripts/ensureStorageFoilIndexes.ts",
+    "db:cleanup-retention": "tsx scripts/cleanupStorageFoilRetention.ts",
     "users:seed": "tsx scripts/seedStorageFoilUsers.ts",
     "test": "node --import tsx --test src/*.test.ts src/**/*.test.ts src/**/*.test.tsx scripts/*.test.ts"
   },

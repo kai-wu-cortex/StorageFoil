@@ -78,6 +78,7 @@ export function createInventoryDataController(options: {
   api: InventoryDataApi;
   storage: InventoryDataStorage;
   onStateChange?: (state: InventoryDataState) => void;
+  now?: () => Date;
 }) {
   let state = getInitialInventoryDataState();
   let loginGeneration: string | null = null;
@@ -119,9 +120,23 @@ export function createInventoryDataController(options: {
         const response = await options.api.bootstrap();
         cacheResponse(response, 'all');
         const next = applyResponse(state, response);
+        const now = (options.now || (() => new Date()))();
+        const calendarMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const publishedCalendarMonth = next.months.includes(calendarMonth) ? calendarMonth : null;
         const validPreferredMonth =
-          preferredMonth && next.months.includes(preferredMonth) ? preferredMonth : next.currentMonth;
-        setState({ ...next, currentMonth: validPreferredMonth });
+          preferredMonth && next.months.includes(preferredMonth) ? preferredMonth : null;
+        const selectedMonth = publishedCalendarMonth ?? validPreferredMonth ?? next.currentMonth;
+        if (selectedMonth && selectedMonth !== next.currentMonth) {
+          try {
+            const selectedResponse = await options.api.getInventory({ month: selectedMonth, sourceId: 'all' });
+            cacheResponse(selectedResponse, 'all');
+            setState(applyResponse(next, selectedResponse));
+          } catch {
+            setState(next);
+          }
+        } else {
+          setState(next);
+        }
       } catch (error) {
         setState({
           ...state,

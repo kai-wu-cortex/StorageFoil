@@ -8,5 +8,11 @@
     "api/**/*.ts": {
       "includeFiles": "src/**/*.ts"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/sync/http",
+      "schedule": "5 0 * * *"
+    }
+  ]
 }

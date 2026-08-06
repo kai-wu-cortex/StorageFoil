@@ -2,6 +2,8 @@ import type { CreateIndexesOptions, Document, IndexSpecification } from 'mongodb
 import { COLLECTION_NAMES } from './collections.ts';
 
 export const STORAGE_FOIL_SCHEMA_VERSION = 1;
+export const INVENTORY_HISTORY_RETENTION_SECONDS = 2 * 24 * 60 * 60;
+export const SYNC_RUN_RETENTION_SECONDS = 2 * 24 * 60 * 60;
 export const OPERATION_LOG_RETENTION_SECONDS = 7 * 24 * 60 * 60;
 
 export interface StorageFoilIndexDefinition {
@@ -146,7 +148,7 @@ export const STORAGE_FOIL_COLLECTION_SCHEMAS: StorageFoilCollectionSchema[] = [
         properties: {
           _id: { bsonType: 'string' },
           status: { enum: ['queued', 'running', 'validated', 'published', 'failed'] },
-          trigger: { enum: ['admin', 'webhook'] },
+          trigger: { enum: ['admin', 'webhook', 'scheduler'] },
           triggeredBy: { bsonType: 'string' },
           requestedFileId: { bsonType: 'string' },
           idempotencyKey: { bsonType: 'string' },
@@ -171,6 +173,13 @@ export const STORAGE_FOIL_COLLECTION_SCHEMAS: StorageFoilCollectionSchema[] = [
     indexes: [
       { key: { idempotencyKey: 1 }, options: { unique: true, sparse: true, name: 'idempotency_unique' } },
       { key: { status: 1, startedAt: -1 }, options: { name: 'status_startedAt' } },
+      {
+        key: { startedAt: 1 },
+        options: {
+          expireAfterSeconds: SYNC_RUN_RETENTION_SECONDS,
+          name: 'startedAt_2d_ttl',
+        },
+      },
     ],
   },
   {
@@ -191,6 +200,7 @@ export const STORAGE_FOIL_COLLECTION_SCHEMAS: StorageFoilCollectionSchema[] = [
           worksheetName: { bsonType: 'string' },
           sourceRow: { bsonType: 'int' },
           syncedAt: { bsonType: 'date' },
+          expiresAt: { bsonType: 'date' },
         },
       },
     },
@@ -200,6 +210,13 @@ export const STORAGE_FOIL_COLLECTION_SCHEMAS: StorageFoilCollectionSchema[] = [
         options: { unique: true, name: 'run_source_record_unique' },
       },
       { key: { syncRunId: 1, month: 1, sourceId: 1 }, options: { name: 'run_month_source' } },
+      {
+        key: { expiresAt: 1 },
+        options: {
+          expireAfterSeconds: 0,
+          name: 'expiresAt_history_2d_ttl',
+        },
+      },
     ],
   },
   {

@@ -1,12 +1,18 @@
 import type { InventoryBatch } from '../types.ts';
+import { INVENTORY_HISTORY_RETENTION_SECONDS } from './schemaDefinitions.ts';
 
 export interface InventoryPublisherCollections {
   inventoryBatches: {
     bulkWrite(ops: unknown[], options?: { ordered?: boolean }): Promise<{ insertedCount?: number; modifiedCount?: number; upsertedCount?: number }>;
     deleteMany(filter: Record<string, unknown>): Promise<{ deletedCount?: number }>;
+    updateMany(
+      filter: Record<string, unknown>,
+      update: { $set: Record<string, unknown> },
+    ): Promise<{ modifiedCount?: number }>;
   };
   inventoryPublications: {
     updateOne(filter: { _id: string }, update: { $set: Record<string, unknown> }, options?: { upsert?: boolean }): Promise<{ acknowledged: boolean }>;
+    findOne(filter: { _id: string }): Promise<{ syncRunId: string } | null>;
     distinct(field: string): Promise<string[]>;
   };
 }
@@ -61,6 +67,7 @@ export async function publishMonth(
   input: { month: string; syncRunId: string; sourceIds: string[]; publishedBy: string },
   now = new Date(),
 ): Promise<void> {
+  const previousPublication = await collections.inventoryPublications.findOne({ _id: input.month });
   await collections.inventoryPublications.updateOne(
     { _id: input.month },
     {
@@ -74,12 +81,25 @@ export async function publishMonth(
     },
     { upsert: true },
   );
+  if (previousPublication && previousPublication.syncRunId !== input.syncRunId) {
+    await collections.inventoryBatches.updateMany(
+      {
+        syncRunId: previousPublication.syncRunId,
+        month: input.month,
+      },
+      {
+        $set: {
+          expiresAt: new Date(now.getTime() + INVENTORY_HISTORY_RETENTION_SECONDS * 1000),
+        },
+      },
+    );
+  }
 }
 
 export async function cleanupUnreferencedInventoryVersions(
   collections: InventoryPublisherCollections,
   now = new Date(),
-  retentionDays = 30,
+  retentionDays = 2,
 ): Promise<number> {
   const liveRunIds = await collections.inventoryPublications.distinct('syncRunId');
   const cutoff = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);

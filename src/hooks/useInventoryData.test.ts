@@ -90,6 +90,31 @@ test('loads bootstrap once per login generation and does not read business local
   assert.deepEqual(storageReads, ['storage_foil_pref_v1_current_month', 'storage_foil_pref_v1_current_month']);
 });
 
+test('authenticated bootstrap prefers the published current calendar month over an older saved month', async () => {
+  const august = {
+    ...bootstrap('2026-08'),
+    months: ['2026-08', '2026-07', '2026-06'],
+    defaultMonth: '2026-08',
+    month: '2026-08',
+  };
+  const controller = createInventoryDataController({
+    api: {
+      bootstrap: async () => august,
+      getInventory: async ({ month }) => bootstrap(month),
+    },
+    storage: {
+      getItem: () => '2026-07',
+      setItem: () => undefined,
+    },
+    now: () => new Date('2026-08-06T12:00:00.000Z'),
+  });
+
+  await controller.bootstrapForUser(viewer, 'login-august');
+
+  assert.equal(controller.getState().currentMonth, '2026-08');
+  assert.equal(controller.getState().batches[0].id, '2026-08-batch');
+});
+
 test('month switch calls inventory API and stale responses cannot overwrite newer selection', async () => {
   const resolvers = new Map<string, (value: ReturnType<typeof bootstrap>) => void>();
   const controller = createInventoryDataController({

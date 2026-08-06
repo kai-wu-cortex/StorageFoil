@@ -94,6 +94,7 @@ export interface StorageFoilInventoryBatchDocument
   worksheetName: string;
   sourceRow: number;
   syncedAt: Date;
+  expiresAt?: Date;
   createdAt: Date;
 }
 

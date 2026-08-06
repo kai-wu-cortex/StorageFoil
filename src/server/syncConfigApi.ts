@@ -1,6 +1,10 @@
 import type { Request, Response } from 'express';
 import { createApiFailure, createApiSuccess } from '../shared/apiTypes.ts';
-import { getSessionSecret, requireRole, sendJson } from './sessionAuth.ts';
+import { getSessionSecret, requireRole, requireSameOrigin, sendJson } from './sessionAuth.ts';
+import {
+  applyStorageFoilRetention,
+  inspectStorageFoilRetention,
+} from './retentionRepository.ts';
 import type { OperationLogType } from '../shared/syncTypes.ts';
 import { listOperationLogs } from './operationLogRepository.ts';
 import { resolveEncryptionKey } from './secretCrypto.ts';
@@ -89,6 +93,7 @@ export async function syncConfigApiHandler(
 ): Promise<void> {
   const isOperationLogsView = req.method === 'GET' && req.query?.view === 'operation-logs';
   const isWpsPreviewView = req.method === 'GET' && req.query?.view === 'wps-preview';
+  const isRetentionView = req.query?.view === 'retention';
   let user;
   try {
     user = requireRole(req, getSessionSecret(), isOperationLogsView ? ['admin', 'viewer'] : ['admin']);
@@ -100,6 +105,10 @@ export async function syncConfigApiHandler(
   res.setHeader('Cache-Control', 'private, no-store');
   try {
     if (req.method === 'GET') {
+      if (isRetentionView) {
+        sendJson(res, 200, createApiSuccess(await inspectStorageFoilRetention()));
+        return;
+      }
       if (isOperationLogsView) {
         const rawType = typeof req.query.type === 'string' ? req.query.type : '';
         const type = LOG_TYPES.has(rawType as OperationLogType) ? rawType as OperationLogType : undefined;
@@ -175,11 +184,23 @@ export async function syncConfigApiHandler(
       sendJson(res, 200, createApiSuccess(await repository().get()));
       return;
     }
+    if (req.method === 'POST' && isRetentionView) {
+      requireSameOrigin(req);
+      const body = req.body && typeof req.body === 'object'
+        ? req.body as Record<string, unknown>
+        : {};
+      if (body.confirm !== 'cleanup-expired-retention') {
+        sendJson(res, 400, createApiFailure('CONFIRMATION_REQUIRED', '缺少清理确认标记。', 'local'));
+        return;
+      }
+      sendJson(res, 200, createApiSuccess(await applyStorageFoilRetention()));
+      return;
+    }
     if (req.method === 'PUT') {
       sendJson(res, 200, createApiSuccess(await repository().update(req.body as SyncConfigUpdateInput, user.username)));
       return;
     }
-    sendJson(res, 405, createApiFailure('METHOD_NOT_ALLOWED', '仅支持 GET 或 PUT。', 'local'));
+    sendJson(res, 405, createApiFailure('METHOD_NOT_ALLOWED', '仅支持 GET、POST 或 PUT。', 'local'));
   } catch (error) {
     if (error instanceof Error && error.message === 'CONFIG_CONFLICT') {
       sendJson(res, 409, createApiFailure('CONFIG_CONFLICT', '配置已被更新，请刷新后重试。', 'local'));

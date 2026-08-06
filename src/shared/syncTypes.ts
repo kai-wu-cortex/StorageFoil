@@ -65,7 +65,7 @@ export interface WorksheetRange {
 }
 
 export type SyncRunStatus = 'queued' | 'running' | 'validated' | 'published' | 'failed';
-export type SyncRunTrigger = 'admin' | 'webhook';
+export type SyncRunTrigger = 'admin' | 'webhook' | 'scheduler';
 
 export interface SyncRunSourceResult {
   sourceId: string;

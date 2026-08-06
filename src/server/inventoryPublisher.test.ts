@@ -23,10 +23,16 @@ const batch: InventoryBatch = {
 
 test('publisher stages records under new syncRunId then switches publication pointer', async () => {
   const writes: unknown[] = [];
+  const expirations: unknown[] = [];
   const publications = new Map<string, Record<string, unknown>>();
   const collections = {
-    inventoryBatches: { bulkWrite: async ops => { writes.push(...ops); return { insertedCount: ops.length }; }, deleteMany: async () => ({ deletedCount: 0 }) },
+    inventoryBatches: {
+      bulkWrite: async ops => { writes.push(...ops); return { insertedCount: ops.length }; },
+      deleteMany: async () => ({ deletedCount: 0 }),
+      updateMany: async (filter, update) => { expirations.push({ filter, update }); return { modifiedCount: 1 }; },
+    },
     inventoryPublications: {
+      findOne: async () => ({ syncRunId: 'run-old' }),
       updateOne: async (filter, update) => {
         publications.set(filter._id, { _id: filter._id, ...update.$set });
         return { acknowledged: true };
@@ -54,13 +60,19 @@ test('publisher stages records under new syncRunId then switches publication poi
   assert.equal(staged, 1);
   assert.match(JSON.stringify(writes[0]), /run-new:pl:row-1/);
   assert.equal(publications.get('2026-07')?.syncRunId, 'run-new');
+  assert.match(JSON.stringify(expirations[0]), /run-old/);
+  assert.match(JSON.stringify(expirations[0]), /expiresAt/);
 });
 
 test('publisher falls back to source name when product model is missing', async () => {
   const writes: unknown[] = [];
   const collections = {
-    inventoryBatches: { bulkWrite: async ops => { writes.push(...ops); return { insertedCount: ops.length }; }, deleteMany: async () => ({ deletedCount: 0 }) },
-    inventoryPublications: { updateOne: async () => ({ acknowledged: true }), distinct: async () => [] },
+    inventoryBatches: {
+      bulkWrite: async ops => { writes.push(...ops); return { insertedCount: ops.length }; },
+      deleteMany: async () => ({ deletedCount: 0 }),
+      updateMany: async () => ({ modifiedCount: 0 }),
+    },
+    inventoryPublications: { findOne: async () => null, updateOne: async () => ({ acknowledged: true }), distinct: async () => [] },
   };
 
   await stageInventoryBatches(collections, {
@@ -80,8 +92,12 @@ test('publisher falls back to source name when product model is missing', async 
 test('cleanup preserves published syncRunIds', async () => {
   let deletedFilter: unknown;
   const collections = {
-    inventoryBatches: { bulkWrite: async () => ({ insertedCount: 0 }), deleteMany: async filter => { deletedFilter = filter; return { deletedCount: 3 }; } },
-    inventoryPublications: { updateOne: async () => ({ acknowledged: true }), distinct: async () => ['run-live'] },
+    inventoryBatches: {
+      bulkWrite: async () => ({ insertedCount: 0 }),
+      deleteMany: async filter => { deletedFilter = filter; return { deletedCount: 3 }; },
+      updateMany: async () => ({ modifiedCount: 0 }),
+    },
+    inventoryPublications: { findOne: async () => null, updateOne: async () => ({ acknowledged: true }), distinct: async () => ['run-live'] },
   };
 
   const deleted = await cleanupUnreferencedInventoryVersions(collections, new Date('2026-07-21T00:00:00Z'), 30);
