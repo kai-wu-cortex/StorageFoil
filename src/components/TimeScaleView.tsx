@@ -21,6 +21,7 @@ import {
   Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useLocalStorageState } from '../hooks/useLocalStorageState';
 
 interface TimeScaleViewProps {
   batches: InventoryBatch[];
@@ -29,9 +30,15 @@ interface TimeScaleViewProps {
 }
 
 export default function TimeScaleView({ batches, transactions, currentMonth }: TimeScaleViewProps) {
-  const [selectedDay, setSelectedDay] = useState<number>(18); // default to a mid-month day, e.g. 18
+  const [selectedDay, setSelectedDay] = useLocalStorageState<number>(
+    'storage_foil_pref_v1_timeline_day',
+    18,
+  );
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useLocalStorageState(
+    'storage_foil_pref_v1_timeline_search',
+    '',
+  );
   const playTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [yearStr, monthStr] = useMemo(() => {

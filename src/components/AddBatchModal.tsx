@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { X, Plus, Clipboard, Tag, Calendar, User, AlignLeft } from 'lucide-react';
+import { useLocalStorageState } from '../hooks/useLocalStorageState';
 
 interface AddBatchModalProps {
   isOpen: boolean;
@@ -19,13 +20,28 @@ interface AddBatchModalProps {
 export default function AddBatchModal({ isOpen, onClose, onSubmit }: AddBatchModalProps) {
   if (!isOpen) return null;
 
-  const [productModel, setProductModel] = useState('品特');
+  const [productModel, setProductModel] = useLocalStorageState(
+    'storage_foil_pref_v1_add_product_model',
+    '品特',
+  );
   const [batchCode, setBatchCode] = useState('');
-  const [specification, setSpecification] = useState('0.64*120M');
-  const [shelf, setShelf] = useState('19-3A');
-  const [initialQty, setInitialQty] = useState<number>(10);
+  const [specification, setSpecification] = useLocalStorageState(
+    'storage_foil_pref_v1_add_specification',
+    '0.64*120M',
+  );
+  const [shelf, setShelf] = useLocalStorageState(
+    'storage_foil_pref_v1_add_shelf',
+    '19-3A',
+  );
+  const [initialQty, setInitialQty] = useLocalStorageState<number>(
+    'storage_foil_pref_v1_add_quantity',
+    10,
+  );
   const [remarks, setRemarks] = useState('');
-  const [operator, setOperator] = useState('仓库管理员');
+  const [operator, setOperator] = useLocalStorageState(
+    'storage_foil_pref_v1_add_operator',
+    '仓库管理员',
+  );
   const [error, setError] = useState('');
 
   const handleFormSubmit = (e: React.FormEvent) => {

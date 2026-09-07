@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react';
 import { InventoryBatch } from '../types';
+import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import { Search, Tag, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface InventoryTableProps {
@@ -30,7 +31,10 @@ export default function InventoryTable({
 
   // Pagination State for high performance rendering of large datasets
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number | 'all'>(30);
+  const [pageSize, setPageSize] = useLocalStorageState<number | 'all'>(
+    'storage_foil_pref_v1_table_page_size',
+    30,
+  );
 
   // Track filters to reset page to 1 on filter change
   const filterKey = `${searchQuery}-${selectedShelf}-${selectedWarningFilter}-${selectedStockLevelFilter}-${sortBy}-${batches.length}`;
