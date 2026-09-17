@@ -11,6 +11,97 @@ function subtractSeconds(now: Date, seconds: number): Date {
   return new Date(now.getTime() - seconds * 1000);
 }
 
+export type CloudBacklogCleanupAction = 'inventory' | 'operation-logs' | 'log-ttl';
+
+async function cloudBacklogContext(db: Db, now: Date) {
+  const inventoryBatches = db.collection(COLLECTION_NAMES.inventoryBatches);
+  const inventoryPublications = db.collection(COLLECTION_NAMES.inventoryPublications);
+  const operationLogs = db.collection(COLLECTION_NAMES.operationLogs);
+  const liveRunIds = (await inventoryPublications.distinct('syncRunId')).filter(
+    (value): value is string => typeof value === 'string' && value.length > 0,
+  );
+  if (liveRunIds.length === 0) {
+    throw new Error('Safety check failed: no published syncRunId values were found.');
+  }
+  return {
+    inventoryBatches,
+    operationLogs,
+    liveRunIds,
+    currentInventory: { syncRunId: { $in: liveRunIds } },
+    staleInventory: { syncRunId: { $nin: liveRunIds } },
+    staleOperationLogs: {
+      createdAt: { $lt: subtractSeconds(now, OPERATION_LOG_RETENTION_SECONDS) },
+    },
+  };
+}
+
+export async function inspectCloudBacklogCleanup(db?: Db, now = new Date()) {
+  const database = db ?? await getMongoDb();
+  const context = await cloudBacklogContext(database, now);
+  const [inventoryTotal, currentInventory, staleInventory, operationLogs, staleOperationLogs, indexes] =
+    await Promise.all([
+      context.inventoryBatches.countDocuments(),
+      context.inventoryBatches.countDocuments(context.currentInventory),
+      context.inventoryBatches.countDocuments(context.staleInventory),
+      context.operationLogs.countDocuments(),
+      context.operationLogs.countDocuments(context.staleOperationLogs),
+      context.operationLogs.indexes(),
+    ]);
+  return {
+    database: resolveMongoDbName(),
+    checkedAt: now.toISOString(),
+    operationLogCutoff: subtractSeconds(now, OPERATION_LOG_RETENTION_SECONDS).toISOString(),
+    publishedRunIds: context.liveRunIds.length,
+    counts: { inventoryTotal, currentInventory, staleInventory, operationLogs, staleOperationLogs },
+    logTtlIndexes: indexes
+      .filter(index => index.key?.createdAt === 1 && index.expireAfterSeconds !== undefined)
+      .map(index => ({ name: index.name, expireAfterSeconds: index.expireAfterSeconds })),
+  };
+}
+
+export async function applyCloudBacklogCleanup(
+  action: CloudBacklogCleanupAction,
+  db?: Db,
+  now = new Date(),
+) {
+  const database = db ?? await getMongoDb();
+  const context = await cloudBacklogContext(database, now);
+  if (action === 'inventory') {
+    const currentBefore = await context.inventoryBatches.countDocuments(context.currentInventory);
+    const result = await context.inventoryBatches.deleteMany(context.staleInventory);
+    const [currentAfter, staleAfter] = await Promise.all([
+      context.inventoryBatches.countDocuments(context.currentInventory),
+      context.inventoryBatches.countDocuments(context.staleInventory),
+    ]);
+    if (currentAfter !== currentBefore || staleAfter !== 0) {
+      throw new Error('Inventory cleanup verification failed.');
+    }
+    return { action, deleted: result.deletedCount, currentBefore, currentAfter, staleAfter };
+  }
+  if (action === 'operation-logs') {
+    const result = await context.operationLogs.deleteMany(context.staleOperationLogs);
+    const staleAfter = await context.operationLogs.countDocuments(context.staleOperationLogs);
+    if (staleAfter !== 0) throw new Error('Operation log cleanup verification failed.');
+    return { action, deleted: result.deletedCount, staleAfter };
+  }
+
+  const indexes = await context.operationLogs.indexes();
+  for (const index of indexes) {
+    if (
+      index.name && index.name !== '_id_' &&
+      index.key?.createdAt === 1 && index.expireAfterSeconds !== undefined &&
+      index.name !== 'createdAt_1d_ttl'
+    ) {
+      await context.operationLogs.dropIndex(index.name);
+    }
+  }
+  const indexName = await context.operationLogs.createIndex(
+    { createdAt: 1 },
+    { expireAfterSeconds: OPERATION_LOG_RETENTION_SECONDS, name: 'createdAt_1d_ttl' },
+  );
+  return { action, indexName, expireAfterSeconds: OPERATION_LOG_RETENTION_SECONDS };
+}
+
 async function retentionContext(db: Db, now: Date) {
   const inventoryBatches = db.collection(COLLECTION_NAMES.inventoryBatches);
   const inventoryPublications = db.collection(COLLECTION_NAMES.inventoryPublications);
@@ -125,7 +216,7 @@ export async function applyStorageFoilRetention(
     ),
     operationLogs.createIndex(
       { createdAt: 1 },
-      { expireAfterSeconds: OPERATION_LOG_RETENTION_SECONDS, name: 'createdAt_7d_ttl' },
+      { expireAfterSeconds: OPERATION_LOG_RETENTION_SECONDS, name: 'createdAt_1d_ttl' },
     ),
   ]);
 

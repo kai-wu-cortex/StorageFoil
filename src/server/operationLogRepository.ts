@@ -62,7 +62,7 @@ function ensureOperationLogRetentionIndex(collection: OperationLogCollection): P
       { createdAt: 1 },
       {
         expireAfterSeconds: OPERATION_LOG_RETENTION_SECONDS,
-        name: 'createdAt_7d_ttl',
+        name: 'createdAt_1d_ttl',
       },
     ).then(() => undefined).catch(() => undefined);
   }

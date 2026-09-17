@@ -2,7 +2,9 @@ import type { Request, Response } from 'express';
 import { createApiFailure, createApiSuccess } from '../shared/apiTypes.ts';
 import { getSessionSecret, requireRole, requireSameOrigin, sendJson } from './sessionAuth.ts';
 import {
+  applyCloudBacklogCleanup,
   applyStorageFoilRetention,
+  inspectCloudBacklogCleanup,
   inspectStorageFoilRetention,
 } from './retentionRepository.ts';
 import type { OperationLogType } from '../shared/syncTypes.ts';
@@ -94,6 +96,7 @@ export async function syncConfigApiHandler(
   const isOperationLogsView = req.method === 'GET' && req.query?.view === 'operation-logs';
   const isWpsPreviewView = req.method === 'GET' && req.query?.view === 'wps-preview';
   const isRetentionView = req.query?.view === 'retention';
+  const isCloudBacklogView = req.query?.view === 'cloud-backlog';
   let user;
   try {
     user = requireRole(req, getSessionSecret(), isOperationLogsView ? ['admin', 'viewer'] : ['admin']);
@@ -105,6 +108,10 @@ export async function syncConfigApiHandler(
   res.setHeader('Cache-Control', 'private, no-store');
   try {
     if (req.method === 'GET') {
+      if (isCloudBacklogView) {
+        sendJson(res, 200, createApiSuccess(await inspectCloudBacklogCleanup()));
+        return;
+      }
       if (isRetentionView) {
         sendJson(res, 200, createApiSuccess(await inspectStorageFoilRetention()));
         return;
@@ -194,6 +201,24 @@ export async function syncConfigApiHandler(
         return;
       }
       sendJson(res, 200, createApiSuccess(await applyStorageFoilRetention()));
+      return;
+    }
+    if (req.method === 'POST' && isCloudBacklogView) {
+      requireSameOrigin(req);
+      const body = req.body && typeof req.body === 'object'
+        ? req.body as Record<string, unknown>
+        : {};
+      if (body.confirm !== 'cleanup-cloud-backlog') {
+        sendJson(res, 400, createApiFailure('CONFIRMATION_REQUIRED', '缺少云端清理确认标记。', 'local'));
+        return;
+      }
+      if (!['inventory', 'operation-logs', 'log-ttl'].includes(String(body.action))) {
+        sendJson(res, 400, createApiFailure('INVALID_ACTION', '清理动作无效。', 'local'));
+        return;
+      }
+      sendJson(res, 200, createApiSuccess(await applyCloudBacklogCleanup(
+        body.action as 'inventory' | 'operation-logs' | 'log-ttl',
+      )));
       return;
     }
     if (req.method === 'PUT') {

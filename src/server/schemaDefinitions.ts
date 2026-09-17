@@ -4,7 +4,7 @@ import { COLLECTION_NAMES } from './collections.ts';
 export const STORAGE_FOIL_SCHEMA_VERSION = 1;
 export const INVENTORY_HISTORY_RETENTION_SECONDS = 2 * 24 * 60 * 60;
 export const SYNC_RUN_RETENTION_SECONDS = 2 * 24 * 60 * 60;
-export const OPERATION_LOG_RETENTION_SECONDS = 7 * 24 * 60 * 60;
+export const OPERATION_LOG_RETENTION_SECONDS = 24 * 60 * 60;
 
 export interface StorageFoilIndexDefinition {
   key: IndexSpecification;
@@ -289,7 +289,7 @@ export const STORAGE_FOIL_COLLECTION_SCHEMAS: StorageFoilCollectionSchema[] = [
         key: { createdAt: 1 },
         options: {
           expireAfterSeconds: OPERATION_LOG_RETENTION_SECONDS,
-          name: 'createdAt_7d_ttl',
+          name: 'createdAt_1d_ttl',
         },
       },
       { key: { createdAt: -1 }, options: { name: 'createdAt_desc' } },

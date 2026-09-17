@@ -8,20 +8,20 @@ import {
   SYNC_RUN_RETENTION_SECONDS,
 } from './schemaDefinitions.ts';
 
-test('operation logs declare a seven day TTL index', () => {
+test('operation logs declare a one day TTL index', () => {
   const operationLogsSchema = STORAGE_FOIL_COLLECTION_SCHEMAS.find(
     schema => schema.name === COLLECTION_NAMES.operationLogs,
   );
 
   assert.ok(operationLogsSchema);
-  assert.equal(OPERATION_LOG_RETENTION_SECONDS, 7 * 24 * 60 * 60);
+  assert.equal(OPERATION_LOG_RETENTION_SECONDS, 24 * 60 * 60);
   assert.deepEqual(
-    operationLogsSchema.indexes.find(index => index.options?.name === 'createdAt_7d_ttl'),
+    operationLogsSchema.indexes.find(index => index.options?.name === 'createdAt_1d_ttl'),
     {
       key: { createdAt: 1 },
       options: {
         expireAfterSeconds: OPERATION_LOG_RETENTION_SECONDS,
-        name: 'createdAt_7d_ttl',
+        name: 'createdAt_1d_ttl',
       },
     },
   );
