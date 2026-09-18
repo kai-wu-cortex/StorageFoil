@@ -6,9 +6,11 @@ import { getMongoCollection } from './mongodb.ts';
 import { getPublicSyncConfig } from './syncConfigRepository.ts';
 import { acquireSyncLock, releaseSyncLock, type SyncLockCollection } from './syncLockRepository.ts';
 import { runWpsFullSync } from './syncOrchestrator.ts';
+import { cleanupUnreferencedInventoryVersions } from './inventoryPublisher.ts';
 import {
   createOrReuseSyncRun,
   finalizeSyncRun,
+  findRecentPublishedSyncRun,
   getSyncRun,
   type PublicSyncRun,
   type SyncRunCollection,
@@ -58,6 +60,27 @@ function service(): HttpSyncService {
     createRun: async input => {
       const config = await getPublicSyncConfig();
       const runCollection = (await getMongoCollection(COLLECTION_NAMES.syncRuns)) as unknown as SyncRunCollection;
+      const reuseWindowMinutes = Math.max(
+        1,
+        Number(process.env.STORAGE_FOIL_HTTP_SYNC_REUSE_MINUTES) || 45,
+      );
+      const recentPublished = await findRecentPublishedSyncRun(
+        runCollection,
+        config.revision,
+        new Date(),
+        reuseWindowMinutes * 60 * 1000,
+      );
+      if (recentPublished) {
+        await writeOperationLog({
+          type: 'sync_received',
+          level: 'info',
+          syncRunId: recentPublished.id,
+          fileId: input.fileId,
+          message: `收到 WPS HTTP 同步请求：fileId=${input.fileId}；复用最近 ${reuseWindowMinutes} 分钟内的完整发布。`,
+          triggeredBy: `http:${input.fileId}`,
+        });
+        return recentPublished;
+      }
       const run = await createOrReuseSyncRun(runCollection, {
         trigger: 'webhook',
         triggeredBy: `http:${input.fileId}`,
@@ -133,6 +156,18 @@ async function executeHttpRun(runId: string, configRevision: string, fileId: str
       errorSummary: publicSyncErrorMessage(error),
     });
   } finally {
+    try {
+      await cleanupUnreferencedInventoryVersions(
+        {
+          inventoryBatches: await getMongoCollection(COLLECTION_NAMES.inventoryBatches),
+          inventoryPublications: await getMongoCollection(COLLECTION_NAMES.inventoryPublications),
+        } as unknown as import('./inventoryPublisher.ts').InventoryPublisherCollections,
+        new Date(),
+        0,
+      );
+    } catch (cleanupError) {
+      console.warn('Failed to clean unreferenced staged inventory.', cleanupError);
+    }
     await releaseSyncLock(lockCollection, runId);
   }
 }

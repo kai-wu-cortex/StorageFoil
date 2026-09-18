@@ -3,12 +3,33 @@ import type { StorageFoilSyncRunDocument } from './collections.ts';
 import type { SyncRunSourceResult, SyncRunStatus, SyncRunTrigger } from '../shared/syncTypes.ts';
 
 export interface SyncRunCollection {
-  findOne(filter: Record<string, string>): Promise<Record<string, unknown> | StorageFoilSyncRunDocument | null>;
+  findOne(
+    filter: Record<string, unknown>,
+    options?: { sort?: Record<string, 1 | -1> },
+  ): Promise<Record<string, unknown> | StorageFoilSyncRunDocument | null>;
   insertOne(doc: StorageFoilSyncRunDocument): Promise<{ acknowledged: boolean }>;
   updateOne(
     filter: { _id: string },
     update: { $set: Partial<StorageFoilSyncRunDocument>; $unset?: { errorSummary: string } },
   ): Promise<{ acknowledged: boolean }>;
+}
+
+export async function findRecentPublishedSyncRun(
+  collection: SyncRunCollection,
+  configRevision: string,
+  now = new Date(),
+  reuseWindowMs = 45 * 60 * 1000,
+): Promise<PublicSyncRun | null> {
+  const cutoff = new Date(now.getTime() - reuseWindowMs);
+  return publicRun(await collection.findOne(
+    {
+      trigger: 'webhook',
+      status: 'published',
+      configRevision,
+      startedAt: { $gte: cutoff },
+    },
+    { sort: { startedAt: -1 } },
+  ));
 }
 
 export interface CreateSyncRunInput {

@@ -1,5 +1,6 @@
 import type { InventoryBatch } from '../types.ts';
-import { INVENTORY_HISTORY_RETENTION_SECONDS } from './schemaDefinitions.ts';
+
+export const STAGED_INVENTORY_RETENTION_SECONDS = 2 * 60 * 60;
 
 export interface InventoryPublisherCollections {
   inventoryBatches: {
@@ -7,7 +8,7 @@ export interface InventoryPublisherCollections {
     deleteMany(filter: Record<string, unknown>): Promise<{ deletedCount?: number }>;
     updateMany(
       filter: Record<string, unknown>,
-      update: { $set: Record<string, unknown> },
+      update: { $set?: Record<string, unknown>; $unset?: Record<string, unknown> },
     ): Promise<{ modifiedCount?: number }>;
   };
   inventoryPublications: {
@@ -52,6 +53,7 @@ export async function stageInventoryBatches(
           worksheetName: input.worksheetName,
           sourceRow: index + 1,
           syncedAt: now,
+          expiresAt: new Date(now.getTime() + STAGED_INVENTORY_RETENTION_SECONDS * 1000),
           createdAt: new Date(batch.createdAt),
         },
         upsert: true,
@@ -81,6 +83,10 @@ export async function publishMonth(
     },
     { upsert: true },
   );
+  await collections.inventoryBatches.updateMany(
+    { syncRunId: input.syncRunId, month: input.month },
+    { $unset: { expiresAt: '' } },
+  );
   if (previousPublication && previousPublication.syncRunId !== input.syncRunId) {
     await collections.inventoryBatches.updateMany(
       {
@@ -89,10 +95,14 @@ export async function publishMonth(
       },
       {
         $set: {
-          expiresAt: new Date(now.getTime() + INVENTORY_HISTORY_RETENTION_SECONDS * 1000),
+          expiresAt: now,
         },
       },
     );
+    await collections.inventoryBatches.deleteMany({
+      syncRunId: previousPublication.syncRunId,
+      month: input.month,
+    });
   }
 }
 
@@ -102,10 +112,17 @@ export async function cleanupUnreferencedInventoryVersions(
   retentionDays = 2,
 ): Promise<number> {
   const liveRunIds = await collections.inventoryPublications.distinct('syncRunId');
-  const cutoff = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
-  const result = await collections.inventoryBatches.deleteMany({
-    syncRunId: { $nin: liveRunIds },
-    syncedAt: { $lt: cutoff },
-  });
+  const filter: Record<string, unknown> = retentionDays > 0
+    ? {
+        syncRunId: { $nin: liveRunIds },
+        syncedAt: { $lt: new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000) },
+      }
+    : {
+        $or: [
+          { syncRunId: { $nin: liveRunIds } },
+          { expiresAt: { $type: 'date' } },
+        ],
+      };
+  const result = await collections.inventoryBatches.deleteMany(filter);
   return result.deletedCount || 0;
 }

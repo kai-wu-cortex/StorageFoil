@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   createOrReuseSyncRun,
   finalizeSyncRun,
+  findRecentPublishedSyncRun,
   getSyncRun,
 } from './syncRunRepository.ts';
 
@@ -58,4 +59,44 @@ test('sync run repository replays idempotency key and finalizes counts', async (
   });
   assert.equal(Object.hasOwn(updates.at(-1)?.$set ?? {}, 'errorSummary'), false);
   assert.deepEqual(updates.at(-1)?.$unset, { errorSummary: '' });
+});
+
+test('recent published full sync is reused across different WPS file triggers', async () => {
+  const published = {
+    _id: 'run-published',
+    status: 'published',
+    trigger: 'webhook',
+    triggeredBy: 'http:file-a',
+    requestedFileId: 'file-a',
+    idempotencyKey: 'first-request',
+    configRevision: 'rev-1',
+    startedAt: new Date('2026-09-18T07:30:00.000Z'),
+    finishedAt: new Date('2026-09-18T07:32:00.000Z'),
+    sourceResults: [],
+    totals: { sources: 5, worksheets: 19, records: 7000, failures: 0 },
+  };
+  let seenFilter: Record<string, unknown> | undefined;
+  const collection = {
+    findOne: async (filter: Record<string, unknown>) => {
+      seenFilter = filter;
+      return published;
+    },
+    insertOne: async () => ({ acknowledged: true }),
+    updateOne: async () => ({ acknowledged: true }),
+  };
+
+  const result = await findRecentPublishedSyncRun(
+    collection,
+    'rev-1',
+    new Date('2026-09-18T08:00:00.000Z'),
+    45 * 60 * 1000,
+  );
+
+  assert.equal(result?.id, 'run-published');
+  assert.deepEqual(seenFilter, {
+    trigger: 'webhook',
+    status: 'published',
+    configRevision: 'rev-1',
+    startedAt: { $gte: new Date('2026-09-18T07:15:00.000Z') },
+  });
 });

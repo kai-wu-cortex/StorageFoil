@@ -23,13 +23,14 @@ const batch: InventoryBatch = {
 
 test('publisher stages records under new syncRunId then switches publication pointer', async () => {
   const writes: unknown[] = [];
-  const expirations: unknown[] = [];
+  const updates: unknown[] = [];
+  const deletions: unknown[] = [];
   const publications = new Map<string, Record<string, unknown>>();
   const collections = {
     inventoryBatches: {
       bulkWrite: async ops => { writes.push(...ops); return { insertedCount: ops.length }; },
-      deleteMany: async () => ({ deletedCount: 0 }),
-      updateMany: async (filter, update) => { expirations.push({ filter, update }); return { modifiedCount: 1 }; },
+      deleteMany: async filter => { deletions.push(filter); return { deletedCount: 1 }; },
+      updateMany: async (filter, update) => { updates.push({ filter, update }); return { modifiedCount: 1 }; },
     },
     inventoryPublications: {
       findOne: async () => ({ syncRunId: 'run-old' }),
@@ -49,19 +50,28 @@ test('publisher stages records under new syncRunId then switches publication poi
     worksheetId: 7,
     worksheetName: '7月',
     batches: [batch],
-  });
+  }, new Date('2026-07-21T00:00:00.000Z'));
   await publishMonth(collections, {
     month: '2026-07',
     syncRunId: 'run-new',
     sourceIds: ['pl'],
     publishedBy: 'admin',
-  });
+  }, new Date('2026-09-18T00:00:00.000Z'));
 
   assert.equal(staged, 1);
-  assert.match(JSON.stringify(writes[0]), /run-new:pl:row-1/);
+  const replacement = (writes[0] as { replaceOne: { replacement: Record<string, unknown> } }).replaceOne.replacement;
+  assert.equal(replacement._id, 'run-new:pl:row-1');
+  assert.equal((replacement.expiresAt as Date).toISOString(), '2026-07-21T02:00:00.000Z');
   assert.equal(publications.get('2026-07')?.syncRunId, 'run-new');
-  assert.match(JSON.stringify(expirations[0]), /run-old/);
-  assert.match(JSON.stringify(expirations[0]), /expiresAt/);
+  assert.deepEqual(updates[0], {
+    filter: { syncRunId: 'run-new', month: '2026-07' },
+    update: { $unset: { expiresAt: '' } },
+  });
+  assert.deepEqual(updates[1], {
+    filter: { syncRunId: 'run-old', month: '2026-07' },
+    update: { $set: { expiresAt: new Date('2026-09-18T00:00:00.000Z') } },
+  });
+  assert.deepEqual(deletions[0], { syncRunId: 'run-old', month: '2026-07' });
 });
 
 test('publisher falls back to source name when product model is missing', async () => {
@@ -104,4 +114,30 @@ test('cleanup preserves published syncRunIds', async () => {
 
   assert.equal(deleted, 3);
   assert.match(JSON.stringify(deletedFilter), /run-live/);
+});
+
+test('immediate cleanup deletes every unreferenced run without an age cutoff', async () => {
+  let deletedFilter: Record<string, unknown> | undefined;
+  const collections = {
+    inventoryBatches: {
+      bulkWrite: async () => ({ insertedCount: 0 }),
+      deleteMany: async (filter: Record<string, unknown>) => { deletedFilter = filter; return { deletedCount: 9 }; },
+      updateMany: async () => ({ modifiedCount: 0 }),
+    },
+    inventoryPublications: { findOne: async () => null, updateOne: async () => ({ acknowledged: true }), distinct: async () => ['run-live'] },
+  };
+
+  const deleted = await cleanupUnreferencedInventoryVersions(
+    collections,
+    new Date('2026-09-18T00:00:00.000Z'),
+    0,
+  );
+
+  assert.equal(deleted, 9);
+  assert.deepEqual(deletedFilter, {
+    $or: [
+      { syncRunId: { $nin: ['run-live'] } },
+      { expiresAt: { $type: 'date' } },
+    ],
+  });
 });
