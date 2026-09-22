@@ -3,6 +3,7 @@ import test from 'node:test';
 import { COLLECTION_NAMES } from './collections.ts';
 import {
   INVENTORY_HISTORY_RETENTION_SECONDS,
+  HTTP_SYNC_RUN_RETENTION_SECONDS,
   OPERATION_LOG_RETENTION_SECONDS,
   STORAGE_FOIL_COLLECTION_SCHEMAS,
   SYNC_RUN_RETENTION_SECONDS,
@@ -39,6 +40,7 @@ test('inventory history and sync runs declare two day TTL indexes', () => {
   assert.ok(syncRunsSchema);
   assert.equal(INVENTORY_HISTORY_RETENTION_SECONDS, 2 * 24 * 60 * 60);
   assert.equal(SYNC_RUN_RETENTION_SECONDS, 2 * 24 * 60 * 60);
+  assert.equal(HTTP_SYNC_RUN_RETENTION_SECONDS, 24 * 60 * 60);
   assert.deepEqual(
     inventorySchema.indexes.find(index => index.options?.name === 'expiresAt_history_2d_ttl'),
     {
@@ -56,6 +58,16 @@ test('inventory history and sync runs declare two day TTL indexes', () => {
       options: {
         expireAfterSeconds: SYNC_RUN_RETENTION_SECONDS,
         name: 'startedAt_2d_ttl',
+      },
+    },
+  );
+  assert.deepEqual(
+    syncRunsSchema.indexes.find(index => index.options?.name === 'expiresAt_http_1d_ttl'),
+    {
+      key: { expiresAt: 1 },
+      options: {
+        expireAfterSeconds: 0,
+        name: 'expiresAt_http_1d_ttl',
       },
     },
   );

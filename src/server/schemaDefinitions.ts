@@ -4,6 +4,7 @@ import { COLLECTION_NAMES } from './collections.ts';
 export const STORAGE_FOIL_SCHEMA_VERSION = 1;
 export const INVENTORY_HISTORY_RETENTION_SECONDS = 2 * 24 * 60 * 60;
 export const SYNC_RUN_RETENTION_SECONDS = 2 * 24 * 60 * 60;
+export const HTTP_SYNC_RUN_RETENTION_SECONDS = 24 * 60 * 60;
 export const OPERATION_LOG_RETENTION_SECONDS = 24 * 60 * 60;
 
 export interface StorageFoilIndexDefinition {
@@ -154,6 +155,7 @@ export const STORAGE_FOIL_COLLECTION_SCHEMAS: StorageFoilCollectionSchema[] = [
           idempotencyKey: { bsonType: 'string' },
           configRevision: { bsonType: 'string' },
           startedAt: { bsonType: 'date' },
+          expiresAt: { bsonType: 'date' },
           finishedAt: { bsonType: 'date' },
           sourceResults: { bsonType: 'array', maxItems: 200 },
           totals: {
@@ -178,6 +180,13 @@ export const STORAGE_FOIL_COLLECTION_SCHEMAS: StorageFoilCollectionSchema[] = [
         options: {
           expireAfterSeconds: SYNC_RUN_RETENTION_SECONDS,
           name: 'startedAt_2d_ttl',
+        },
+      },
+      {
+        key: { expiresAt: 1 },
+        options: {
+          expireAfterSeconds: 0,
+          name: 'expiresAt_http_1d_ttl',
         },
       },
     ],

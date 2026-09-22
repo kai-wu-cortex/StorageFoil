@@ -214,6 +214,10 @@ export async function applyStorageFoilRetention(
       { startedAt: 1 },
       { expireAfterSeconds: SYNC_RUN_RETENTION_SECONDS, name: 'startedAt_2d_ttl' },
     ),
+    syncRuns.createIndex(
+      { expiresAt: 1 },
+      { expireAfterSeconds: 0, name: 'expiresAt_http_1d_ttl' },
+    ),
     operationLogs.createIndex(
       { createdAt: 1 },
       { expireAfterSeconds: OPERATION_LOG_RETENTION_SECONDS, name: 'createdAt_1d_ttl' },

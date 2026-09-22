@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { StorageFoilSyncRunDocument } from './collections.ts';
+import { HTTP_SYNC_RUN_RETENTION_SECONDS } from './schemaDefinitions.ts';
 import type { SyncRunSourceResult, SyncRunStatus, SyncRunTrigger } from '../shared/syncTypes.ts';
 
 export interface SyncRunCollection {
@@ -101,6 +102,9 @@ export async function createOrReuseSyncRun(
     startedAt: now,
     sourceResults: [],
     totals: { sources: 0, worksheets: 0, records: 0, failures: 0 },
+    ...(input.trigger === 'webhook'
+      ? { expiresAt: new Date(now.getTime() + HTTP_SYNC_RUN_RETENTION_SECONDS * 1000) }
+      : {}),
     ...(input.requestedFileId ? { requestedFileId: input.requestedFileId } : {}),
   };
   await collection.insertOne(doc);

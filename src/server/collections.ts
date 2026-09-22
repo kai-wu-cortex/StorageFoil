@@ -63,6 +63,7 @@ export interface StorageFoilSyncRunDocument extends Document {
   idempotencyKey: string;
   configRevision: string;
   startedAt: Date;
+  expiresAt?: Date;
   finishedAt?: Date;
   sourceResults: Array<{
     sourceId: string;

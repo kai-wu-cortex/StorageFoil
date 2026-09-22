@@ -28,13 +28,17 @@ test('sync run repository replays idempotency key and finalizes counts', async (
     },
   };
 
-  const first = await createOrReuseSyncRun(collection, {
-    trigger: 'webhook',
-    triggeredBy: 'http:file-1',
-    requestedFileId: 'file-1',
-    idempotencyKey: 'idem-1',
-    configRevision: 'rev-1',
-  });
+  const first = await createOrReuseSyncRun(
+    collection,
+    {
+      trigger: 'webhook',
+      triggeredBy: 'http:file-1',
+      requestedFileId: 'file-1',
+      idempotencyKey: 'idem-1',
+      configRevision: 'rev-1',
+    },
+    new Date('2026-09-22T00:00:00.000Z'),
+  );
   const second = await createOrReuseSyncRun(collection, {
     trigger: 'webhook',
     triggeredBy: 'http:file-1',
@@ -49,6 +53,10 @@ test('sync run repository replays idempotency key and finalizes counts', async (
   });
 
   assert.equal(first.id, second.id);
+  assert.equal(
+    (docs.get(first.id)?.expiresAt as Date).toISOString(),
+    '2026-09-23T00:00:00.000Z',
+  );
   assert.equal((await getSyncRun(collection, first.id))?.requestedFileId, 'file-1');
   assert.equal((await getSyncRun(collection, first.id))?.status, 'published');
   assert.deepEqual((await getSyncRun(collection, first.id))?.totals, {
@@ -59,6 +67,31 @@ test('sync run repository replays idempotency key and finalizes counts', async (
   });
   assert.equal(Object.hasOwn(updates.at(-1)?.$set ?? {}, 'errorSummary'), false);
   assert.deepEqual(updates.at(-1)?.$unset, { errorSummary: '' });
+});
+
+test('non-HTTP sync runs keep the collection-wide retention policy', async () => {
+  let inserted: Record<string, unknown> | undefined;
+  const collection = {
+    findOne: async () => null,
+    insertOne: async (doc: Record<string, unknown>) => {
+      inserted = doc;
+      return { acknowledged: true };
+    },
+    updateOne: async () => ({ acknowledged: true }),
+  };
+
+  await createOrReuseSyncRun(
+    collection,
+    {
+      trigger: 'admin',
+      triggeredBy: 'admin',
+      idempotencyKey: 'admin-1',
+      configRevision: 'rev-1',
+    },
+    new Date('2026-09-22T00:00:00.000Z'),
+  );
+
+  assert.equal(Object.hasOwn(inserted ?? {}, 'expiresAt'), false);
 });
 
 test('recent published full sync is reused across different WPS file triggers', async () => {
