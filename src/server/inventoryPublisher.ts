@@ -1,6 +1,7 @@
 import type { InventoryBatch } from '../types.ts';
 
 export const STAGED_INVENTORY_RETENTION_SECONDS = 2 * 60 * 60;
+export const HTTP_STAGED_INVENTORY_RETENTION_SECONDS = 24 * 60 * 60;
 
 export interface InventoryPublisherCollections {
   inventoryBatches: {
@@ -26,6 +27,7 @@ export interface StageInventoryInput {
   worksheetId: number;
   worksheetName: string;
   batches: InventoryBatch[];
+  retentionSeconds?: number;
 }
 
 export async function stageInventoryBatches(
@@ -34,6 +36,7 @@ export async function stageInventoryBatches(
   now = new Date(),
 ): Promise<number> {
   if (!input.batches.length) return 0;
+  const retentionSeconds = input.retentionSeconds ?? STAGED_INVENTORY_RETENTION_SECONDS;
   const ops = input.batches.map((batch, index) => {
     const recordKey = batch.id || `${input.worksheetId}:${index}`;
     const productModel = batch.productModel.trim() || input.sourceName;
@@ -53,7 +56,7 @@ export async function stageInventoryBatches(
           worksheetName: input.worksheetName,
           sourceRow: index + 1,
           syncedAt: now,
-          expiresAt: new Date(now.getTime() + STAGED_INVENTORY_RETENTION_SECONDS * 1000),
+          expiresAt: new Date(now.getTime() + retentionSeconds * 1000),
           createdAt: new Date(batch.createdAt),
         },
         upsert: true,

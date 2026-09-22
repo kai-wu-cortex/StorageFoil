@@ -112,3 +112,38 @@ test('orchestrator reports token refresh failures before reading sources', async
   assert.equal(result.sourceResults.length, 0);
   assert.match(result.errorSummary || '', /WPS_TOKEN_FAILED: fetch failed/);
 });
+
+test('HTTP orchestrator stages inventory with a one day retention period', async () => {
+  let retentionSeconds: number | undefined;
+  const result = await runWpsFullSync({
+    runId: 'run-http-retention',
+    logger: silentLogger,
+    trigger: 'webhook',
+    triggeredBy: 'http:file-pc',
+    configRevision: 'rev-1',
+    getAccessToken: async () => ({ accessToken: 'token', apiBase: 'https://openapi.wps.cn' }),
+    getConfig: async () => ({
+      credentials: { apiBase: 'https://openapi.wps.cn', appId: 'app', redirectUri: '', hasAppKey: true, hasRefreshToken: true, updatedAt: '', updatedBy: '' },
+      revision: 'rev-1',
+      sources: [{ id: 'pc', name: 'PC', enabled: true, fileId: 'file-pc', worksheetIdStart: 9, worksheetIdEnd: 9, rowFrom: 1, rowTo: 20, colFrom: 1, colTo: 20, fieldConfig: DEFAULT_WPS_FIELD_CONFIG, updatedAt: '', updatedBy: '' }],
+    }),
+    fetchWorksheets: async () => [{ sheet_id: 9, name: '9月' }],
+    fetchRangeData: async () => ({
+      batches: [{
+        id: 'row-http', productModel: 'PC-001', batchCode: 'B-HTTP', specification: '', shelf: '',
+        totalStock: 1, inflowQty: 1, outflowQty: 0, remarks: '', dailyActivities: [],
+        createdAt: '2026-09-22T00:00:00.000Z',
+      }],
+      rawData: {},
+      headers: [],
+    }),
+    stageBatches: async input => {
+      retentionSeconds = (input as typeof input & { retentionSeconds?: number }).retentionSeconds;
+      return input.batches.length;
+    },
+    publishMonth: async () => undefined,
+  });
+
+  assert.equal(result.status, 'published');
+  assert.equal(retentionSeconds, 24 * 60 * 60);
+});

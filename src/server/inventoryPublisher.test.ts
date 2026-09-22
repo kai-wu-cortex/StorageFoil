@@ -99,6 +99,32 @@ test('publisher falls back to source name when product model is missing', async 
   assert.equal(replacement.productModel, 'PC');
 });
 
+test('publisher uses the requested retention period for HTTP staged inventory', async () => {
+  const writes: unknown[] = [];
+  const collections = {
+    inventoryBatches: {
+      bulkWrite: async ops => { writes.push(...ops); return { insertedCount: ops.length }; },
+      deleteMany: async () => ({ deletedCount: 0 }),
+      updateMany: async () => ({ modifiedCount: 0 }),
+    },
+    inventoryPublications: { findOne: async () => null, updateOne: async () => ({ acknowledged: true }), distinct: async () => [] },
+  };
+
+  await stageInventoryBatches(collections, {
+    syncRunId: 'run-http',
+    sourceId: 'pc',
+    sourceName: 'PC',
+    month: '2026-09',
+    worksheetId: 9,
+    worksheetName: '9月',
+    batches: [batch],
+    retentionSeconds: 24 * 60 * 60,
+  }, new Date('2026-09-22T00:00:00.000Z'));
+
+  const replacement = (writes[0] as { replaceOne: { replacement: Record<string, unknown> } }).replaceOne.replacement;
+  assert.equal((replacement.expiresAt as Date).toISOString(), '2026-09-23T00:00:00.000Z');
+});
+
 test('cleanup preserves published syncRunIds', async () => {
   let deletedFilter: unknown;
   const collections = {

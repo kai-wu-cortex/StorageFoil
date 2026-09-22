@@ -6,7 +6,13 @@ import type { WpsSyncResult, WpsWorksheetInfo } from './wpsInventoryParser.ts';
 import { selectInventoryWorksheets } from './wpsInventoryParser.ts';
 import { fetchWpsRangeData, fetchWpsWorksheets } from './wpsClient.ts';
 import { getValidWpsAccessToken } from './wpsTokenService.ts';
-import { publishMonth as defaultPublishMonth, stageInventoryBatches as defaultStageInventoryBatches, type InventoryPublisherCollections, type StageInventoryInput } from './inventoryPublisher.ts';
+import {
+  HTTP_STAGED_INVENTORY_RETENTION_SECONDS,
+  publishMonth as defaultPublishMonth,
+  stageInventoryBatches as defaultStageInventoryBatches,
+  type InventoryPublisherCollections,
+  type StageInventoryInput,
+} from './inventoryPublisher.ts';
 import { COLLECTION_NAMES } from './collections.ts';
 import { getMongoCollection } from './mongodb.ts';
 import type { InventoryBatch } from '../types.ts';
@@ -135,6 +141,9 @@ export async function runWpsFullSync(deps: SyncOrchestratorDependencies): Promis
           worksheetId: worksheet.worksheetId,
           worksheetName: worksheet.name,
           batches: parsed.batches,
+          retentionSeconds: deps.trigger === 'webhook'
+            ? HTTP_STAGED_INVENTORY_RETENTION_SECONDS
+            : undefined,
         });
         await writeOperationLogs(parsed.batches
           .filter(batch => batch.inflowQty || batch.outflowQty || batch.totalStock)
