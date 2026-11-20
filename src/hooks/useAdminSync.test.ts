@@ -111,6 +111,7 @@ test('admin sync controller saves sources without sending App ID or App Key', as
 
   assert.deepEqual(savedBody?.credentials, {});
   assert.equal(savedBody?.sources.length, 2);
+  assert.equal(savedBody?.sources[1].worksheetIdEnd, 99);
   assert.equal(savedBody?.sources[1].rowTo, 9999);
 });
 

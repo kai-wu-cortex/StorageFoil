@@ -40,11 +40,11 @@ test('initial source manifest covers the five current XLSX logical sources witho
   assert.deepEqual(
     manifest.sources.map(source => [source.id, source.fileId, source.worksheetIdStart, source.worksheetIdEnd]),
     [
-      ['pl', 'file-pl', 1, 12],
-      ['pc_powder', 'file-pc-powder', 1, 12],
-      ['py', 'file-py', 1, 12],
-      ['pk', 'file-pk', 1, 12],
-      ['pc', 'file-pc', 1, 12],
+      ['pl', 'file-pl', 1, 99],
+      ['pc_powder', 'file-pc-powder', 1, 99],
+      ['py', 'file-py', 1, 99],
+      ['pk', 'file-pk', 1, 99],
+      ['pc', 'file-pc', 1, 99],
     ],
   );
   assert.equal(JSON.stringify(manifest).includes('appKey'), false);
@@ -71,5 +71,5 @@ test('initial source manifest requires operator supplied File IDs and accepts la
   });
 
   assert.equal(manifest.sources.at(-1)?.id, 'extra');
-  assert.equal(manifest.sources.at(-1)?.worksheetIdEnd, 12);
+  assert.equal(manifest.sources.at(-1)?.worksheetIdEnd, 99);
 });

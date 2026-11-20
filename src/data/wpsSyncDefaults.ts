@@ -1,1 +1,2 @@
 export const DEFAULT_WPS_ROW_TO = 9999;
+export const DEFAULT_WPS_WORKSHEET_ID_END = 99;

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_WPS_FIELD_CONFIG } from '../data/wpsFieldConfig';
-import { DEFAULT_WPS_ROW_TO } from '../data/wpsSyncDefaults';
+import {
+  DEFAULT_WPS_ROW_TO,
+  DEFAULT_WPS_WORKSHEET_ID_END,
+} from '../data/wpsSyncDefaults';
 import { adminSyncApi } from '../lib/adminSyncApi';
 import type { OperationLogEntry, OperationLogType, PublicWpsCredentials, WpsSourcePreview, WpsSyncSourceConfig } from '../shared/syncTypes';
 
@@ -165,7 +168,7 @@ export function createAdminSyncController(options: {
             address,
             fileId,
             worksheetIdStart: 1,
-            worksheetIdEnd: 12,
+            worksheetIdEnd: DEFAULT_WPS_WORKSHEET_ID_END,
             rowFrom: 1,
             rowTo: DEFAULT_WPS_ROW_TO,
             colFrom: 0,

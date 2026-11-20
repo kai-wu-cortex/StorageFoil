@@ -1,7 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Database, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
 import { DEFAULT_WPS_FIELD_CONFIG } from '../data/wpsFieldConfig';
-import { DEFAULT_WPS_ROW_TO } from '../data/wpsSyncDefaults';
+import {
+  DEFAULT_WPS_ROW_TO,
+  DEFAULT_WPS_WORKSHEET_ID_END,
+} from '../data/wpsSyncDefaults';
 import { adminSyncApi } from '../lib/adminSyncApi';
 import type { WpsSyncSourceConfig } from '../shared/syncTypes';
 
@@ -80,7 +83,7 @@ export default function WpsSettingsModal({ open, onClose }: WpsSettingsModalProp
       enabled: true,
       fileId: '',
       worksheetIdStart: 1,
-      worksheetIdEnd: 12,
+      worksheetIdEnd: DEFAULT_WPS_WORKSHEET_ID_END,
       rowFrom: 1,
       rowTo: DEFAULT_WPS_ROW_TO,
       colFrom: 1,
@@ -189,7 +192,7 @@ export default function WpsSettingsModal({ open, onClose }: WpsSettingsModalProp
                 <Field label="来源名称"><input className={inputClass} value={activeSource.name} onChange={event => updateSource({ name: event.target.value })} /></Field>
                 <Field label="File ID"><input className={inputClass} value={activeSource.fileId} onChange={event => updateSource({ fileId: event.target.value })} /></Field>
                 <Field label="工作表起始 ID"><input className={inputClass} type="number" value={activeSource.worksheetIdStart} onChange={event => updateSource({ worksheetIdStart: Number(event.target.value) || 1 })} /></Field>
-                <Field label="工作表结束 ID"><input className={inputClass} type="number" value={activeSource.worksheetIdEnd} onChange={event => updateSource({ worksheetIdEnd: Number(event.target.value) || 12 })} /></Field>
+                <Field label="工作表结束 ID"><input className={inputClass} type="number" value={activeSource.worksheetIdEnd} onChange={event => updateSource({ worksheetIdEnd: Number(event.target.value) || DEFAULT_WPS_WORKSHEET_ID_END })} /></Field>
                 <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
                   <input type="checkbox" checked={activeSource.enabled} onChange={event => updateSource({ enabled: event.target.checked })} className="h-4 w-4 accent-emerald-600" />
                   启用该来源

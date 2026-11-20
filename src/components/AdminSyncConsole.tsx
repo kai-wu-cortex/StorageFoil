@@ -4,7 +4,10 @@ import type { AuthUser } from '../shared/authTypes';
 import type { WpsSyncSourceConfig } from '../shared/syncTypes';
 import type { WpsFieldConfig } from '../types';
 import { useAdminSync } from '../hooks/useAdminSync';
-import { DEFAULT_WPS_ROW_TO } from '../data/wpsSyncDefaults';
+import {
+  DEFAULT_WPS_ROW_TO,
+  DEFAULT_WPS_WORKSHEET_ID_END,
+} from '../data/wpsSyncDefaults';
 
 export function shouldRenderAdminSyncConsole(user: AuthUser | null): boolean {
   return user?.role === 'admin';
@@ -237,7 +240,7 @@ function SourceCard({
           启用来源
         </label>
         <Field label="工作表起始 ID"><input className={inputClass} type="number" value={source.worksheetIdStart} onChange={event => onChange({ worksheetIdStart: Number(event.target.value) || 1 })} /></Field>
-        <Field label="工作表结束 ID"><input className={inputClass} type="number" value={source.worksheetIdEnd} onChange={event => onChange({ worksheetIdEnd: Number(event.target.value) || 12 })} /></Field>
+        <Field label="工作表结束 ID"><input className={inputClass} type="number" value={source.worksheetIdEnd} onChange={event => onChange({ worksheetIdEnd: Number(event.target.value) || DEFAULT_WPS_WORKSHEET_ID_END })} /></Field>
         <Field label="读取起始行"><input className={inputClass} type="number" value={source.rowFrom} onChange={event => onChange({ rowFrom: Number(event.target.value) || 1 })} /></Field>
         <Field label="读取结束行"><input className={inputClass} type="number" min={1} value={source.rowTo} onChange={event => onChange({ rowTo: Number(event.target.value) || DEFAULT_WPS_ROW_TO })} /></Field>
         <Field label="读取起始列"><input className={`${inputClass} bg-slate-100 text-slate-400`} type="number" value={0} readOnly /></Field>
