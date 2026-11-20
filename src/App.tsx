@@ -16,6 +16,7 @@ import OperationLogsPanel from './components/OperationLogsPanel';
 import PinteLogo from './components/PinteLogo';
 import { useAuthSession } from './hooks/useAuthSession';
 import { useInventoryData } from './hooks/useInventoryData';
+import { useHorizontalScroll } from './hooks/useHorizontalScroll';
 import { useLocalStorageState } from './hooks/useLocalStorageState';
 import { matchesInventorySearch } from './lib/inventorySearch';
 import { matchesWarningFilter } from './lib/warningFilters';
@@ -68,6 +69,7 @@ function AuthenticatedStorageFoilApp({
   const transactions: TransactionHistory[] = [];
   const monthsList = inventory.months;
   const currentMonth = inventory.currentMonth ?? '';
+  const monthScroller = useHorizontalScroll<HTMLDivElement>();
 
   const [activeTab, setActiveTab] = useLocalStorageState<ActiveTab>(
     'storage_foil_pref_v1_active_tab',
@@ -256,7 +258,14 @@ function AuthenticatedStorageFoilApp({
               <span className="hidden sm:inline">月度工作表 (MongoDB):</span>
               <span className="inline sm:hidden">工作表:</span>
             </span>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none min-w-0">
+            <div
+              ref={monthScroller.ref}
+              {...monthScroller.scrollProps}
+              aria-label="月度工作表，可左右滚动"
+              className={`flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none select-none ${
+                monthScroller.isDragging ? 'cursor-grabbing' : 'cursor-grab'
+              }`}
+            >
               {monthsList.map(month => {
                 const isActive = month === currentMonth;
                 const [year, monthValue] = month.split('-');
